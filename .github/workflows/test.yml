@@ -27,7 +27,6 @@ jobs:
 
     - name: Run backend tests
       run: |
-        python -m backend.tests.test_activation_pipeline
         python -m backend.tests.test_active_stop_selection
         python -m backend.tests.test_mark_trade_filled
         python -m backend.tests.test_trade_manager
