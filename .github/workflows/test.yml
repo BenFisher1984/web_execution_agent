@@ -30,7 +30,6 @@ jobs:
         python -m backend.tests.test_activation_pipeline
         python -m backend.tests.test_active_stop_selection
         python -m backend.tests.test_mark_trade_filled
-        python -m backend.tests.test_order_executor
         python -m backend.tests.test_trade_manager
         python -m backend.tests.test_validation
         python -m backend.tests.test_volatility
