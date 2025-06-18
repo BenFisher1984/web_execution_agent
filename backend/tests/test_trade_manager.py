@@ -1,5 +1,6 @@
-from engine.ib_client import IBClient
-from engine.trade_manager import TradeManager
+from backend.engine.ib_client import IBClient
+from backend.engine.trade_manager import TradeManager
+
 
 if __name__ == "__main__":
     client = IBClient()
