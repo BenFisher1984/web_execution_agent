@@ -1,5 +1,6 @@
-from engine.ib_client import IBClient
-from engine.volatility import calculate_adr, calculate_atr
+from backend.engine.ib_client import IBClient
+from backend.engine.volatility import calculate_adr, calculate_atr
+
 
 if __name__ == "__main__":
     client = IBClient()

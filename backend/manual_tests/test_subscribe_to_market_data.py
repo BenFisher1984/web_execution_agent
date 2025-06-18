@@ -1,6 +1,6 @@
 # backend/test_subscribe_to_market_data.py
 
-from engine.ib_client import IBClient
+from backend.engine.ib_client import IBClient
 from ib_insync import Ticker
 
 def on_tick(ticker: Ticker):

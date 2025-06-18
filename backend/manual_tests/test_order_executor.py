@@ -1,6 +1,7 @@
-from engine.ib_client import IBClient
-from engine.order_executor import OrderExecutor
-from engine.trade_manager import TradeManager
+from backend.engine.ib_client import IBClient
+from backend.engine.order_executor import OrderExecutor
+from backend.engine.trade_manager import TradeManager
+
 
 # 🔌 Connect to IB
 ib = IBClient()
