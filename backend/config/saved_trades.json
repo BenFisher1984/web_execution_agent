@@ -1,0 +1,23 @@
+[
+  {
+    "symbol": "",
+    "direction": "",
+    "entry_trigger": null,
+    "initial_stop_rule": {
+      "type": "",
+      "price": null
+    },
+    "trailing_stop": {
+      "type": "",
+      "price": null
+    },
+    "portfolio_value": null,
+    "risk_pct": null,
+    "order_type": "market",
+    "time_in_force": "GTC",
+    "order_status": "pending",
+    "trade_status": "pending",
+    "filled_qty": null,
+    "quantity": 4
+  }
+]
