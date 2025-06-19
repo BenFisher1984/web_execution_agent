@@ -1,0 +1,310 @@
+[
+  {
+    "section": "Trade Summary",
+    "fields": [
+      {
+        "key": "order_status",
+        "label": "Activate Status",
+        "type": "checkbox",
+        "editable": true
+      },
+      {
+        "key": "trade_status",
+        "label": "Trade Status",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "Pending",
+          "Live",
+          "Closed"
+        ]
+      },
+      {
+        "key": "symbol",
+        "label": "Symbol",
+        "type": "text",
+        "editable": true,
+        "mandatory": true
+      },
+      {
+        "key": "name",
+        "label": "Name",
+        "type": "text",
+        "editable": false,
+        "readonly": true
+      },
+      {
+        "key": "last_price",
+        "label": "Last Price",
+        "type": "number",
+        "editable": false,
+        "readonly": true
+      },
+      {
+        "key": "tranche",
+        "label": "Tranche",
+        "type": "text",
+        "editable": true
+      },
+      {
+        "key": "strategy",
+        "label": "Strategy",
+        "type": "text",
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Volatility Measures",
+    "fields": [
+      {
+        "key": "volatility.adr_20",
+        "label": "ADR (20d)",
+        "type": "readonly",
+        "volatility_type": "adr",
+        "lookback": 20
+      },
+      {
+        "key": "volatility.atr_14",
+        "label": "ATR (14d)",
+        "type": "readonly",
+        "volatility_type": "atr",
+        "lookback": 14
+      },
+      {
+        "key": "volatility.stdev_20",
+        "label": "StDev (20d)",
+        "type": "readonly",
+        "volatility_type": "stdev",
+        "lookback": 20,
+        "enabled": false
+      },
+      {
+        "key": "volatility.hv_20",
+        "label": "HV (20d)",
+        "type": "readonly",
+        "volatility_type": "hv",
+        "lookback": 20,
+        "enabled": false
+      }
+    ]
+  },
+  {
+    "section": "Execution Rules",
+    "fields": [
+      {
+        "key": "risk_pct",
+        "label": "Size (Risk %)",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "0.5",
+          "1.0",
+          "2.0"
+        ]
+      },
+      {
+        "key": "direction",
+        "label": "Direction",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "Long",
+          "Short"
+        ]
+      },
+      {
+        "key": "time_in_force",
+        "label": "Time In Force",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "Day",
+          "GTC"
+        ]
+      },
+      {
+        "key": "order_type",
+        "label": "Order Type",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "Market",
+          "Limit"
+        ]
+      },
+      {
+        "key": "gap_tolerance",
+        "label": "Gap Tolerance",
+        "type": "number",
+        "editable": true
+      },
+      {
+        "key": "entry_trigger",
+        "label": "Entry Trigger Price",
+        "type": "number",
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Stop Loss Rules",
+    "fields": [
+      {
+        "key": "initial_stop_rule.type",
+        "label": "Initial Stop Rule",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "",
+          "custom",
+          "1xADR",
+          "1xATR"
+        ]
+      },
+      {
+        "key": "initial_stop_rule.price",
+        "label": "Initial Stop Price",
+        "type": "number",
+        "editable": true
+      },
+      {
+        "key": "trailing_stop.type",
+        "label": "Trailing Stop Rule",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "",
+          "custom",
+          "1xADR",
+          "1xATR"
+        ]
+      },
+      {
+        "key": "trailing_stop.price",
+        "label": "Trailing Stop Price",
+        "type": "number",
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Take Profit Rules",
+    "fields": [
+      {
+        "key": "take_profit.type",
+        "label": "Take Profit Rule",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "",
+          "Fixed"
+        ]
+      },
+      {
+        "key": "take_profit.value",
+        "label": "Take Profit %",
+        "type": "number",
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Trade Details",
+    "fields": [
+      {
+        "key": "manual",
+        "label": "Manual Trade?",
+        "type": "checkbox",
+        "editable": true
+      },
+      {
+        "key": "trade_date",
+        "label": "Trade Date",
+        "type": "text",
+        "editable": true
+      },
+      {
+        "key": "quantity",
+        "label": "Quantity",
+        "type": "number",
+        "editable": true
+      },
+      {
+        "key": "fill_price",
+        "label": "Trade Price",
+        "type": "number",
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Live Risk",
+    "fields": [
+      {
+        "key": "trailing_stop_active",
+        "label": "Trailing Stop Active?",
+        "type": "readonly"
+      },
+      {
+        "key": "percent_at_risk",
+        "label": "% at Risk",
+        "type": "readonly"
+      },
+      {
+        "key": "dollar_at_risk",
+        "label": "$ at Risk",
+        "type": "readonly"
+      }
+    ]
+  },
+  {
+    "section": "Live PNL",
+    "fields": [
+      {
+        "key": "pnl_percent",
+        "label": "PNL %",
+        "type": "readonly"
+      },
+      {
+        "key": "pnl_dollar",
+        "label": "PNL $",
+        "type": "readonly"
+      }
+    ]
+  },
+  {
+    "section": "Trade Management",
+    "fields": [
+      {
+        "key": "exit_type",
+        "label": "Exit Type",
+        "type": "select",
+        "editable": true,
+        "options": [
+          "Manual",
+          "Stop",
+          "Take Profit"
+        ]
+      },
+      {
+        "key": "exit_date",
+        "label": "Exit Date",
+        "type": "text",
+        "editable": true
+      },
+      {
+        "key": "exit_price",
+        "label": "Exit Price",
+        "type": "number",
+        "editable": true
+      },
+      {
+        "key": "exit_percentage",
+        "label": "Exit Percentage",
+        "type": "number",
+        "editable": true
+      }
+    ]
+  }
+]

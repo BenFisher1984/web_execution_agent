@@ -7,6 +7,8 @@
 * Prevent core engine from operating in a disconnected state
 * Alert the user via GUI when connection is lost
 * Gracefully handle expected disconnects during the daily reset window (e.g., 6:00pm Sydney)
+* Ensure backend maintains persistent connection **independent of the frontend**
+* GUI should remain optional — backend is the always-on engine
 
 ---
 
@@ -17,6 +19,7 @@
 * Use `ib.isConnected()` inside a background watchdog thread or async loop
 * Poll every 1–5 seconds
 * Write connection state to a shared `connection_status` variable
+* Run watchdog using `@app.on_event("startup")` or `asyncio.create_task(...)`
 
 ### 2. Auto-Reconnect
 
@@ -24,6 +27,7 @@
 * Retry until connection succeeds
 * Reset backoff on successful connection
 * Suppress if disconnect occurs during reset window
+* Implement reconnect logic in `ib_connection_manager.py` or similar service
 
 ### 3. GUI Alerting
 
@@ -32,6 +36,7 @@
   * Show warning banner or toast if API is down
   * Optionally disable activation / save buttons when disconnected
   * Display reconnect attempt status or countdown
+* Optional: add "Connect to IB Gateway" button via POST `/connect_ib`
 
 ### 4. Engine Guardrails
 
@@ -46,6 +51,7 @@
 
 * Backend reads `reset_time` and `timezone` from `settings.json`
 * Suppress auto-reconnect and GUI alerting during that exact time window
+* Use `pytz` and `datetime.now(tz)` to determine current time in local timezone
 
 ### 6. Optional Enhancements (Future)
 
@@ -56,8 +62,19 @@
 
 ---
 
+## 🔁 Production Behavior Expectations
+
+| Event                           | Behavior                                               |
+| ------------------------------- | ------------------------------------------------------ |
+| Backend launches                | ✅ Auto-connect to IB Gateway                           |
+| GUI closed or refreshed         | ✅ API connection persists                              |
+| Gateway disconnects (non-reset) | ✅ Auto-reconnect loop triggers recovery                |
+| Gateway resets (\~18:00 AEST)   | ✅ Reconnect suppressed during window, then resumes     |
+| Manual button clicked in GUI    | ✅ Triggers `/connect_ib` if needed (optional fallback) |
+
+---
+
 ## ⏸ Status
 
-🟨 Parked — planned for a future milestone. Safe to continue building other core features.
-
-File created: 19-Jun-2025
+🟨 **Watchdog, reset suppression, and guardrails are planned but not yet implemented**
+✅ Design is aligned with long-term production goals

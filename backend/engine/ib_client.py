@@ -2,7 +2,8 @@ from ib_insync import IB, Stock
 import math
 
 class IBClient:
-    def __init__(self, host='127.0.0.1', port=4002, client_id=1):
+    def __init__(self, host='127.0.0.1', port=7497, client_id=2):
+
         self.host = host
         self.port = port
         self.client_id = client_id
@@ -115,5 +116,4 @@ class IBClient:
             print(f"❌ Failed to subscribe to market data for {symbol}: {e}")
 
 ib_client = IBClient()
-ib_client.connect()
 ib = ib_client.ib  # <- export the underlying ib_insync instance

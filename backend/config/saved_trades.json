@@ -15,8 +15,8 @@
     "risk_pct": null,
     "order_type": "market",
     "time_in_force": "GTC",
-    "order_status": "pending",
-    "trade_status": "pending",
+    "order_status": true,
+    "trade_status": "Pending",
     "filled_qty": null,
     "quantity": 4
   }

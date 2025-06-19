@@ -1,0 +1,84 @@
+## ✅ Summary of Work Completed — Layout Refactor + GUI Integration (19-Jun-25)
+
+### 🔧 1. Layout Config Refactor (`layout_config.json`)
+
+* Migrated all hardcoded section/field definitions out of the frontend.
+* Created a flexible, structured JSON config defining:
+
+  * ✅ Section headers (e.g., "Trade Summary", "Execution Rules")
+  * ✅ Field keys, labels, types (`text`, `number`, `select`, `checkbox`, `readonly`)
+  * ✅ Optional fields with `enabled: true/false` toggles
+  * ✅ Dropdown options (e.g., `["None", "Custom"]`)
+  * ✅ Volatility field variants (e.g., `ADR (20d)`, `ATR (14d)`) with lookback flexibility
+
+### 🧠 2. GUI Now Driven by Layout Config
+
+* Replaced hardcoded table/grid with **dynamic render** from `layout_config.json`.
+* Implemented **Form View layout**:
+
+  * Fields are shown vertically (left) with trades as columns (right)
+  * Section headers now render visually in the form
+* Auto-resizing and compact styling applied for clean UX
+
+### 🛠 3. Modify Layout Feature
+
+* Added a **"Modify Layout"** button above the table
+* Opens a **popup layout editor** that:
+
+  * Displays all fields from layout\_config.json
+  * Allows users to **toggle fields on/off** via checkboxes
+  * Preserves section headers and structure
+* Includes **Save Layout** button that persists updated layout to disk via FastAPI:
+
+  * `POST /layout_config`
+  * Updates `backend/config/layout_config.json`
+
+### ➕ 4. Add / Delete Trade Column Controls
+
+* **Add Trade** button:
+
+  * Appends a new trade column using default values
+* **Delete Trade** button:
+
+  * Opens a modal to select which column to remove
+  * User must click “Apply” to confirm deletion
+* Trade changes immediately reflected in table
+
+### 💾 5. Save Trades to Disk
+
+* Added **"Save Trades"** button (next to Modify/Delete):
+
+  * Saves current number of trades to `trade_config.json`
+  * Re-applied on app load for layout persistence
+
+### 🔌 6. IB Gateway API Connection Validation
+
+* Ensured correct use of **IB Gateway** (not TWS):
+
+  * Verified via process and socket port (`7497`)
+* Updated `ib_client.py`:
+
+  * Port = `7497`, client\_id = `2`
+  * Removed redundant `connect()` call
+* Manual test `test_ib_connection.py` confirmed:
+
+  * AAPL contract + price + historical bars
+* Backend `startup_event` added:
+
+  * Automatically connects on server launch
+  * GUI now shows correct API connection status
+
+### 📁 Key Files Updated
+
+| File                    | Purpose                                            |
+| ----------------------- | -------------------------------------------------- |
+| `layout_config.json`    | Dynamic layout definition                          |
+| `App.js`                | Refactored frontend to consume layout\_config.json |
+| `app.py`                | API routes + IB client startup hook                |
+| `ib_client.py`          | Updated config for IB Gateway                      |
+| `trade_config.json`     | Saved trade count persistence                      |
+| `test_ib_connection.py` | Manual API validation                              |
+
+---
+
+All layout logic is now metadata-driven, sectioned, and user-configurable — fully aligned with long-term flexibility goals.
