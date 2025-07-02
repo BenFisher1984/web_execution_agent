@@ -1,0 +1,2 @@
+Engine logic assumes Market order always
+Update order and trade status for when a day order expires 

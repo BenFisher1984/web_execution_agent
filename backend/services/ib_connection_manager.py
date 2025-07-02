@@ -7,9 +7,13 @@ from backend.engine.ib_client import ib_client
 class IBConnectionManager:
     def __init__(self, settings_path="backend/config/settings.json"):
         self.ib = ib_client.ib
+        self.host = ib_client.host  # ✅ FIXED
+        self.port = ib_client.port
+        self.client_id = ib_client.client_id
+
         self.settings_path = settings_path
-        self.backoff_delay = 1  # Start with 1s
-        self.max_backoff = 60   # Cap at 60s
+        self.backoff_delay = 1
+        self.max_backoff = 60
         self.connected = False
         self._reconnect_lock = asyncio.Lock()
 
@@ -17,16 +21,17 @@ class IBConnectionManager:
         return self.ib.isConnected()
 
     async def connect(self):
+        """
+        Connect to IB Gateway using async method.
+        """
         try:
-            if not self.ib.isConnected():
-                print("🔌 Attempting to connect to IB Gateway...")
-                await self.ib.connectAsync('127.0.0.1', 7497, clientId=2)
-                self.connected = True
-                self.backoff_delay = 1
-                print("✅ IB Gateway connected.")
+            await self.ib.connectAsync(self.host, self.port, self.client_id)
+            self.connected = True
+            print("✅ IB Gateway connected.")
         except Exception as e:
-            print(f"❌ Connection failed: {e}")
             self.connected = False
+            print(f"❌ Connection failed: {e}")
+
 
     async def start_watchdog(self):
         while True:
@@ -35,13 +40,15 @@ class IBConnectionManager:
                     print("⏸ IB is in reset window. Suppressing reconnect.")
                 else:
                     async with self._reconnect_lock:
-                        await self.connect()
+                        await self.connect()  # ✅ Fixed here
                     if not self.ib.isConnected():
                         print(f"🔁 Retrying in {self.backoff_delay} seconds...")
                         await asyncio.sleep(self.backoff_delay)
                         self.backoff_delay = min(self.backoff_delay * 2, self.max_backoff)
                         continue
             await asyncio.sleep(5)
+
+
 
     def in_reset_window(self):
         try:

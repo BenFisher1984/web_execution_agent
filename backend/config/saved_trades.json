@@ -1,23 +1,64 @@
 [
   {
-    "symbol": "",
-    "direction": "",
-    "entry_trigger": null,
-    "initial_stop_rule": {
-      "type": "",
-      "price": null
-    },
-    "trailing_stop": {
-      "type": "",
-      "price": null
-    },
-    "portfolio_value": null,
-    "risk_pct": null,
-    "order_type": "market",
-    "time_in_force": "GTC",
-    "order_status": true,
+    "symbol": "AAPL",
+    "direction": "Long",
+    "order_status": "Active",
     "trade_status": "Pending",
-    "filled_qty": null,
-    "quantity": 4
+    "entry_rule": "Custom",
+    "entry_rule_price": 150.0,
+    "initial_stop_rule": "Custom",
+    "initial_stop_price": 145.0,
+    "trailing_stop_rule": {
+      "type": "ema",
+      "length": 20,
+      "offset": 0.5,
+      "price_basis": "last_trade",
+      "update": "tick",
+      "trigger_mode": "intraday",
+      "risk_amount": null
+    },
+    "take_profit_type": "Custom",
+    "take_profit_price": 160.0,
+    "quantity": 100
+  },
+  {
+    "symbol": "MSFT",
+    "direction": "Short",
+    "order_status": "Contingent Order Submitted",
+    "trade_status": "Live",
+    "entry_rule": "Custom",
+    "entry_rule_price": 300.0,
+    "initial_stop_rule": "Custom",
+    "initial_stop_price": 310.0,
+    "trailing_stop_rule": {
+      "type": "sma",
+      "length": 15,
+      "offset": 0.3,
+      "price_basis": "last_trade",
+      "update": "tick",
+      "trigger_mode": "intraday",
+      "risk_amount": null
+    },
+    "take_profit_type": "Custom",
+    "take_profit_price": 290.0,
+    "filled_qty": 50,
+    "executed_price": 305.0,
+    "quantity": 50
+  },
+  {
+    "symbol": "GOOG",
+    "direction": "Long",
+    "order_status": "Inactive",
+    "trade_status": "Closed",
+    "entry_rule": "Custom",
+    "entry_rule_price": 2500.0,
+    "initial_stop_rule": "Custom",
+    "initial_stop_price": 2450.0,
+    "take_profit_type": "Custom",
+    "take_profit_price": 2600.0,
+    "filled_qty": 10,
+    "executed_price": 2520.0,
+    "exit_price": 2590.0,
+    "exit_qty": 10
   }
 ]

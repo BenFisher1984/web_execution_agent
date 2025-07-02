@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "react-resizable-columns": "^1.0.4"
+  }
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "key": "adr",
+    "label": "Average Daily Range",
+    "family": "volatility",
+    "description": "Measures the average range between high and low as a % of close",
+    "parameters": [
+      {
+        "name": "lookback",
+        "type": "integer",
+        "default": 20,
+        "min": 1,
+        "max": 100
+      }
+    ]
+  },
+  {
+    "key": "atr",
+    "label": "Average True Range",
+    "family": "volatility",
+    "description": "Measures true range including gaps",
+    "parameters": [
+      {
+        "name": "lookback",
+        "type": "integer",
+        "default": 14,
+        "min": 1,
+        "max": 100
+      }
+    ]
+  },
+  {
+    "key": "sma",
+    "label": "Simple Moving Average",
+    "family": "moving_average",
+    "description": "Simple arithmetic moving average",
+    "parameters": [
+      {
+        "name": "lookback",
+        "type": "integer",
+        "default": 8,
+        "min": 1,
+        "max": 200
+      }
+    ]
+  },
+  {
+    "key": "ema",
+    "label": "Exponential Moving Average",
+    "family": "moving_average",
+    "description": "Weighted moving average favoring recent data",
+    "parameters": [
+      {
+        "name": "lookback",
+        "type": "integer",
+        "default": 21,
+        "min": 1,
+        "max": 200
+      }
+    ]
+  }
+]

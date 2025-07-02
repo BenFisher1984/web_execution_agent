@@ -1,67 +1,70 @@
-"""
-volatility.py
-
-Provides volatility metrics for trade evaluation, including:
-- ADR (Average Daily Range)
-- ATR (Average True Range)
-
-Currently supports user-defined lookback only.
-Future options (e.g., output format, basis, style) are structurally supported.
-"""
-
 import numpy as np
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class VolatilityCache:
+    def __init__(self):
+        self.cache = {}
+
+    def get_adr(self, bars, options=None):
+        key = (tuple(bars), str(options))
+        if key in self.cache:
+            return self.cache[key]
+        result = calculate_adr(bars, options)
+        if result is not None:
+            self.cache[key] = result
+        return result
+
+    def get_atr(self, bars, options=None):
+        key = (tuple(bars), str(options))
+        if key in self.cache:
+            return self.cache[key]
+        result = calculate_atr(bars, options)
+        if result is not None:
+            self.cache[key] = result
+        return result
+
+volatility_cache = VolatilityCache()
 
 def calculate_adr(bars, options=None):
-    """
-    Calculates Average Daily Range (ADR) as a percentage of close price.
-    
-    Args:
-        bars (list): List of historical bars (BarData)
-        options (dict): Supports 'lookback' (default=20)
-    
-    Returns:
-        float: ADR% rounded to 2 decimals, or None if not enough data
-    """
     lookback = options.get("lookback", 20) if options else 20
-
-    if len(bars) < lookback:
-        print(f"⚠️ Not enough bars for ADR: {len(bars)} available, {lookback} required")
+    if not bars or len(bars) < lookback:
+        logger.warning(f"Not enough bars for ADR: {len(bars)} available, {lookback} required")
         return None
-
-    highs = np.array([bar.high for bar in bars][-lookback:])
-    lows = np.array([bar.low for bar in bars][-lookback:])
-    closes = np.array([bar.close for bar in bars][-lookback:])
-
-    adr_pct = np.mean((highs - lows) / closes) * 100
-    return round(adr_pct, 2)
+    try:
+        highs = np.array([bar.high for bar in bars][-lookback:])
+        lows = np.array([bar.low for bar in bars][-lookback:])
+        closes = np.array([bar.close for bar in bars][-lookback:])
+        if not np.all(closes > 0):
+            logger.warning("Invalid close prices for ADR calculation")
+            return None
+        adr_pct = np.mean((highs - lows) / closes) * 100
+        return round(adr_pct, 2)
+    except Exception as e:
+        logger.error(f"Error calculating ADR: {e}")
+        return None
 
 def calculate_atr(bars, options=None):
-    """
-    Calculates Average True Range (ATR) as a percentage of close price.
-
-    Args:
-        bars (list): List of historical bars (BarData)
-        options (dict): Supports 'lookback' (default=14)
-
-    Returns:
-        float: ATR% rounded to 2 decimals, or None if not enough data
-    """
     lookback = options.get("lookback", 14) if options else 14
-
-    if len(bars) < lookback + 1:
-        print(f"⚠️ Not enough bars for ATR: {len(bars)} available, {lookback + 1} required")
+    if not bars or len(bars) < lookback + 1:
+        logger.warning(f"Not enough bars for ATR: {len(bars)} available, {lookback + 1} required")
         return None
-
-    closes = np.array([bar.close for bar in bars])
-    highs = np.array([bar.high for bar in bars])
-    lows = np.array([bar.low for bar in bars])
-
-    prev_closes = closes[:-1]
-    highs = highs[1:]
-    lows = lows[1:]
-    closes = closes[1:]
-
-    true_ranges = np.maximum(highs - lows, np.abs(highs - prev_closes), np.abs(lows - prev_closes))
-    atr_pct = np.mean(true_ranges[-lookback:] / closes[-lookback:]) * 100
-
-    return round(atr_pct, 2)
+    try:
+        closes = np.array([bar.close for bar in bars])
+        highs = np.array([bar.high for bar in bars])
+        lows = np.array([bar.low for bar in bars])
+        if not np.all(closes > 0):
+            logger.warning("Invalid close prices for ATR calculation")
+            return None
+        prev_closes = closes[:-1]
+        highs = highs[1:]
+        lows = lows[1:]
+        closes = closes[1:]
+        true_ranges = np.maximum(highs - lows, np.abs(highs - prev_closes), np.abs(lows - prev_closes))
+        atr_pct = np.mean(true_ranges[-lookback:] / closes[-lookback:]) * 100
+        return round(atr_pct, 2)
+    except Exception as e:
+        logger.error(f"Error calculating ATR: {e}")
+        return None

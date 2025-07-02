@@ -1,0 +1,330 @@
+[
+  {
+    "section": "Trade Summary",
+    "fields": [
+      {
+        "key": "symbol",
+        "label": "Symbol",
+        "mandatory": true,
+        "editable": false,
+        "type": "text"
+      },
+      {
+        "key": "calculated_quantity",
+        "label": "Quantity",
+        "mandatory": true,
+        "editable": false,
+        "type": "number"
+      }
+    ]
+  },
+  {
+    "section": "Execution Rules",
+    "fields": [
+      {
+        "key": "risk_pct",
+        "label": "Risk %",
+        "mandatory": true,
+        "editable": true,
+        "type": "number"
+      },
+      {
+        "key": "direction",
+        "label": "Direction",
+        "mandatory": true,
+        "editable": true,
+        "type": "select",
+        "options": ["Long", "Short"]
+      },
+      {
+        "key": "time_in_force",
+        "label": "Time In Force",
+        "mandatory": true,
+        "editable": true,
+        "type": "select",
+        "options": ["Day", "GTC"]
+      },
+      {
+        "key": "order_type",
+        "label": "Order Type",
+        "mandatory": true,
+        "editable": true,
+        "type": "select",
+        "options": ["Market", "Limit"]
+      }
+    ]
+  },
+  {
+    "section": "Entry Rules",
+    "fields": [
+      {
+        "key": "primary_source",
+        "label": "Primary Source",
+        "type": "select",
+        "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
+        "mandatory": true,
+        "editable": false
+      },
+      {
+        "key": "condition",
+        "label": "Condition",
+        "type": "select",
+        "options": [">=", "<=", "=", "<", ">"],
+        "mandatory": true,
+        "editable": false
+      },
+      {
+        "key": "secondary_source",
+        "label": "Secondary Source",
+        "type": "select",
+        "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
+        "mandatory": true,
+        "editable": false
+      },
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "number",
+        "mandatory": true,
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Initial Stop Rule",
+    "fields": [
+      {
+        "key": "primary_source",
+        "label": "Primary Source",
+        "type": "select",
+        "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
+        "mandatory": true,
+        "editable": false
+      },
+      {
+        "key": "condition",
+        "label": "Condition",
+        "type": "select",
+        "options": [">=", "<=", "=", "<", ">"],
+        "mandatory": true,
+        "editable": false
+      },
+      {
+        "key": "secondary_source",
+        "label": "Secondary Source",
+        "type": "select",
+        "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
+        "mandatory": true,
+        "editable": false
+      },
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "number",
+        "mandatory": true,
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Trailing Stop Rules",
+    "fields": [
+      {
+        "key": "primary_source",
+        "label": "Primary Source",
+        "type": "select",
+        "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
+        "mandatory": false,
+        "editable": false
+      },
+      {
+        "key": "condition",
+        "label": "Condition",
+        "type": "select",
+        "options": [">=", "<=", "=", "<", ">"],
+        "mandatory": false,
+        "editable": false
+      },
+      {
+        "key": "secondary_source",
+        "label": "Secondary Source",
+        "type": "select",
+        "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
+        "mandatory": false,
+        "editable": false
+      },
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "number",
+        "mandatory": false,
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Take Profit Rules",
+    "fields": [
+      {
+        "key": "primary_source",
+        "label": "Primary Source",
+        "type": "select",
+        "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
+        "mandatory": false,
+        "editable": false
+      },
+      {
+        "key": "condition",
+        "label": "Condition",
+        "type": "select",
+        "options": [">=", "<=", "=", "<", ">"],
+        "mandatory": false,
+        "editable": false
+      },
+      {
+        "key": "secondary_source",
+        "label": "Secondary Source",
+        "type": "select",
+        "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
+        "mandatory": false,
+        "editable": false
+      },
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "number",
+        "mandatory": false,
+        "editable": true
+      }
+    ]
+  },
+  {
+    "section": "Live Risk",
+    "fields": [
+      {
+        "key": "trailing_stop_active",
+        "label": "Trailing Stop Active?",
+        "type": "readonly"
+      },
+      {
+        "key": "percent_at_risk",
+        "label": "% at Risk",
+        "type": "readonly"
+      },
+      {
+        "key": "dollar_at_risk",
+        "label": "$ at Risk",
+        "type": "readonly"
+      }
+    ]
+  },
+  {
+    "section": "Live PNL",
+    "fields": [
+      {
+        "key": "pnl_percent",
+        "label": "PNL %",
+        "type": "readonly"
+      },
+      {
+        "key": "pnl_dollar",
+        "label": "PNL $",
+        "type": "readonly"
+      }
+    ]
+  },
+  {
+    "section": "Volatility Measures",
+    "fields": [
+      {
+        "key": "volatility.adr_20",
+        "label": "ADR (20d)",
+        "type": "readonly",
+        "volatility_type": "adr",
+        "lookback": 20
+      },
+      {
+        "key": "volatility.atr_14",
+        "label": "ATR (14d)",
+        "type": "readonly",
+        "volatility_type": "atr",
+        "lookback": 14
+      },
+      {
+        "key": "volatility.stdev_20",
+        "label": "StDev (20d)",
+        "type": "readonly",
+        "volatility_type": "stdev",
+        "lookback": 20,
+        "enabled": false
+      },
+      {
+        "key": "volatility.hv_20",
+        "label": "HV (20d)",
+        "type": "readonly",
+        "volatility_type": "hv",
+        "lookback": 20,
+        "enabled": false
+      }
+    ]
+  },
+  {
+    "section": "Trade Entry Details",
+    "fields": [
+      {
+        "key": "manual",
+        "label": "Manual Trade?",
+        "type": "checkbox",
+        "editable": true,
+        "enabled": false
+      },
+      {
+        "key": "trade_date",
+        "label": "Trade Date",
+        "type": "text",
+        "readonly": true
+      },
+      {
+        "key": "filled_quantity",
+        "label": "Filled Quantity",
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "key": "fill_price",
+        "label": "Trade Price",
+        "type": "number",
+        "readonly": true
+      }
+    ]
+  },
+  {
+    "section": "Trade Exit Details",
+    "fields": [
+      {
+        "key": "exit_type",
+        "label": "Exit Type",
+        "type": "text",
+        "readonly": true
+      },
+      {
+        "key": "exit_time",
+        "label": "Exit Date/Time",
+        "type": "text",
+        "readonly": true
+      },
+      {
+        "key": "exit_quantity",
+        "label": "Exit Quantity",
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "key": "exit_price",
+        "label": "Exit Price",
+        "type": "number",
+        "readonly": true
+      }
+    ]
+  }
+]

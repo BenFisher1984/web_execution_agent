@@ -1,106 +1,171 @@
 from ib_insync import IB, Stock
 import math
+import asyncio
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class IBClient:
     def __init__(self, host='127.0.0.1', port=7497, client_id=2):
-
         self.host = host
         self.port = port
         self.client_id = client_id
         self.ib = IB()
         self.subscribed_contracts = {}
+        self.contract_cache = {}
+        self.volatility_cache = {}
 
-    def connect(self, client_id=None):
+    async def connect(self, client_id=None, max_retries=3):
+        for attempt in range(max_retries):
+            try:
+                cid = client_id if client_id is not None else self.client_id
+                await asyncio.wait_for(
+                    self.ib.connectAsync(self.host, self.port, clientId=cid),
+                    timeout=10.0
+                )
+                logger.info("Connected to IB Gateway")
+                return
+            except asyncio.TimeoutError:
+                logger.error(f"Connection timeout (attempt {attempt + 1})")
+            except Exception as e:
+                logger.error(f"Connection failed (attempt {attempt + 1}): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2)
+        logger.error("Max retries reached for IB Gateway connection")
+        raise Exception("Failed to connect to IB Gateway")
+
+    async def disconnect(self):
         try:
-            cid = client_id if client_id is not None else self.client_id
-            self.ib.connect(self.host, self.port, clientId=cid)
-            print("✅ Connected to IB Gateway")
+            self.ib.disconnect()
+            logger.info("Disconnected from IB Gateway")
         except Exception as e:
-            print(f"❌ Connection failed: {e}")
+            logger.error(f"Disconnect failed: {e}")
 
-    def disconnect(self):
-        self.ib.disconnect()
-        print("🔌 Disconnected from IB Gateway")
-
-    def get_contract_details(self, symbol):
+    async def get_contract_details(self, symbol):
         try:
+            if symbol in self.contract_cache:
+                logger.debug(f"Using cached contract for {symbol}")
+                return self.contract_cache[symbol]
+
             contract = Stock(symbol, 'SMART', 'USD')
-            details = self.ib.reqContractDetails(contract)
+            details = await asyncio.wait_for(
+                self.ib.reqContractDetailsAsync(contract),
+                timeout=5.0
+            )
             if details:
+                self.contract_cache[symbol] = details[0].contract
                 return details[0].contract
             else:
-                print(f"⚠️ No contract details found for {symbol}")
+                logger.warning(f"No contract details found for {symbol}")
                 return None
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout fetching contract for {symbol}")
+            return None
         except Exception as e:
-            print(f"❌ Failed to fetch contract for {symbol}: {e}")
+            logger.error(f"Failed to fetch contract for {symbol}: {e}")
             return None
 
-    def get_last_price(self, symbol):
+    async def get_contract_details_batch(self, symbols):
         try:
-            contract = self.get_contract_details(symbol)
-            if not contract:
-                print(f"❌ Cannot fetch last price: contract not found for {symbol}")
-                return None
-
-            ticker = self.ib.reqMktData(contract, "", False, False)
-            self.ib.sleep(1)
-
-            last_price = ticker.last
-            close_price = ticker.close
-
-            if last_price is not None and not math.isnan(last_price):
-                print(f"✅ Using last trade price for {symbol}")
-                return last_price
-            elif close_price is not None and not math.isnan(close_price):
-                print(f"⚠️ Using close price for {symbol} (last price unavailable)")
-                return close_price
-            else:
-                print(f"⚠️ No usable last or close price for {symbol}")
-                return None
+            tasks = [self.get_contract_details(symbol) for symbol in symbols]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            return {
+                symbol: result
+                for symbol, result in zip(symbols, results)
+                if not isinstance(result, Exception)
+            }
         except Exception as e:
-            print(f"❌ Failed to fetch last price for {symbol}: {e}")
-            return None
+            logger.error(f"Failed to fetch batch contracts: {e}")
+            return {}
 
-    def get_historical_data(self, symbol, lookback_days=30):
+    async def get_last_price(self, symbol):
         try:
-            contract = self.get_contract_details(symbol)
+            contract = await self.get_contract_details(symbol)
             if not contract:
-                print(f"❌ Cannot fetch history: contract not found for {symbol}")
+                logger.error(f"Cannot fetch last price: contract not found for {symbol}")
                 return None
 
-            bars = self.ib.reqHistoricalData(
-                contract,
-                endDateTime='',
-                durationStr=f'{lookback_days} D',
-                barSizeSetting='1 day',
-                whatToShow='TRADES',
-                useRTH=True,
-                formatDate=1
+            try:
+                tickers = await asyncio.wait_for(
+                    self.ib.reqTickersAsync(contract),
+                    timeout=5.0
+                )
+                if not tickers:
+                    logger.warning(f"No ticker data for {symbol}")
+                    raise Exception("No ticker data")
+
+                ticker = tickers[0]
+                last_price = ticker.last
+                close_price = ticker.close
+
+                if last_price is not None and not math.isnan(last_price):
+                    logger.debug(f"Using last trade price for {symbol}: ${last_price}")
+                    return last_price
+                elif close_price is not None and not math.isnan(close_price):
+                    logger.debug(f"Using close price for {symbol}: ${close_price}")
+                    return close_price
+                else:
+                    raise Exception("No usable last or close price")
+
+            except (asyncio.TimeoutError, Exception) as e:
+                logger.warning(f"Live market data unavailable for {symbol}, falling back to historical: {e}")
+                bars = await self.get_historical_data(symbol, lookback_days=2)
+                if bars:
+                    last_bar = bars[-1]
+                    logger.info(f"Using fallback close price for {symbol}: ${last_bar.close}")
+                    return last_bar.close
+                else:
+                    logger.error(f"No historical data available for fallback for {symbol}")
+                    return None
+                
+        except Exception as e:
+            logger.error(f"get_last_price failed for {symbol}: {e}")
+            return None         
+
+
+    async def get_historical_data(self, symbol, lookback_days=30):
+        try:
+            contract = await self.get_contract_details(symbol)
+            if not contract:
+                logger.error(f"Cannot fetch history: contract not found for {symbol}")
+                return None
+
+            bars = await asyncio.wait_for(
+                self.ib.reqHistoricalDataAsync(
+                    contract,
+                    endDateTime='',
+                    durationStr=f'{lookback_days} D',
+                    barSizeSetting='1 day',
+                    whatToShow='TRADES',
+                    useRTH=True,
+                    formatDate=1
+                ),
+                timeout=10.0
             )
 
             if not bars:
-                print(f"⚠️ No historical data returned for {symbol}")
+                logger.warning(f"No historical data returned for {symbol}")
                 return None
 
-            print(f"📈 Retrieved {len(bars)} bars for {symbol}")
+            logger.info(f"Retrieved {len(bars)} bars for {symbol}")
             return bars
-
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout fetching historical data for {symbol}")
+            return None
         except Exception as e:
-            print(f"❌ Failed to fetch historical data for {symbol}: {e}")
+            logger.error(f"Failed to fetch historical data for {symbol}: {e}")
             return None
 
-    def subscribe_to_market_data(self, symbol, callback):
-        """
-        Subscribes to real-time tick data for the given symbol.
-        Calls the provided callback on price updates.
-        """
+    async def subscribe_to_market_data(self, symbol, callback):
         try:
             if symbol in self.subscribed_contracts:
-                print(f"ℹ️ Already subscribed to {symbol}")
+                logger.info(f"Already subscribed to {symbol}")
                 return
 
-            contract = self.get_contract_details(symbol)
+            contract = await self.get_contract_details(symbol)
             if not contract:
+                logger.error(f"Cannot subscribe: contract not found for {symbol}")
                 return
 
             ticker = self.ib.reqMktData(contract, "", False, False)
@@ -110,10 +175,37 @@ class IBClient:
 
             ticker.updateEvent += on_update
             self.subscribed_contracts[symbol] = ticker
-            print(f"📡 Subscribed to market data for {symbol}")
-
+            logger.info(f"Subscribed to market data for {symbol}")
         except Exception as e:
-            print(f"❌ Failed to subscribe to market data for {symbol}: {e}")
+            logger.error(f"Failed to subscribe to market data for {symbol}: {e}")
+
+    async def subscribe_batch_market_data(self, symbols, callback):
+        try:
+            contracts = []
+            for symbol in symbols:
+                contract = await self.get_contract_details(symbol)
+                if contract:
+                    contracts.append(contract)
+                else:
+                    logger.warning(f"Skipping {symbol} — no contract found")
+
+            if not contracts:
+                logger.warning("No valid contracts to subscribe in batch")
+                return
+
+            tickers = await asyncio.wait_for(
+                self.ib.reqTickersAsync(*contracts),
+                timeout=10.0
+            )
+            for ticker in tickers:
+                ticker.updateEvent += callback
+                symbol = ticker.contract.symbol
+                self.subscribed_contracts[symbol] = ticker
+                logger.info(f"Subscribed to batched market data for {symbol}")
+        except asyncio.TimeoutError:
+            logger.error("Timeout subscribing to batch market data")
+        except Exception as e:
+            logger.error(f"Failed to subscribe to batch market data: {e}")
 
 ib_client = IBClient()
-ib = ib_client.ib  # <- export the underlying ib_insync instance
+ib = ib_client.ib
