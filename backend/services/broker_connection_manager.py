@@ -2,53 +2,51 @@ import asyncio
 import json
 from datetime import datetime
 import pytz
-from backend.engine.ib_client import ib_client
+import logging
+from backend.engine.adapters.factory import get_adapter
+from backend.config.settings import get as settings_get
 
-class IBConnectionManager:
+logger = logging.getLogger(__name__)
+
+class BrokerConnectionManager:
     def __init__(self, settings_path="backend/config/settings.json"):
-        self.ib = ib_client.ib
-        self.host = ib_client.host  # ✅ FIXED
-        self.port = ib_client.port
-        self.client_id = ib_client.client_id
-
+        self.adapter = get_adapter(settings_get("execution_adapter"))
         self.settings_path = settings_path
         self.backoff_delay = 1
         self.max_backoff = 60
-        self.connected = False
         self._reconnect_lock = asyncio.Lock()
 
     def is_connected(self):
-        return self.ib.isConnected()
+        return self.adapter.is_connected()
 
     async def connect(self):
-        """
-        Connect to IB Gateway using async method.
-        """
         try:
-            await self.ib.connectAsync(self.host, self.port, self.client_id)
-            self.connected = True
-            print("✅ IB Gateway connected.")
+            await self.adapter.connect()
+            logger.info("✅ Broker connected.")
         except Exception as e:
-            self.connected = False
-            print(f"❌ Connection failed: {e}")
+            logger.error(f"❌ Connection failed: {e}")
 
+    async def disconnect(self):
+        try:
+            await self.adapter.disconnect()
+            logger.info("✅ Broker disconnected.")
+        except Exception as e:
+            logger.error(f"❌ Disconnect failed: {e}")
 
     async def start_watchdog(self):
         while True:
-            if not self.ib.isConnected():
+            if not self.adapter.is_connected():
                 if self.in_reset_window():
-                    print("⏸ IB is in reset window. Suppressing reconnect.")
+                    logger.info("⏸ In reset window, skipping reconnect.")
                 else:
                     async with self._reconnect_lock:
-                        await self.connect()  # ✅ Fixed here
-                    if not self.ib.isConnected():
-                        print(f"🔁 Retrying in {self.backoff_delay} seconds...")
+                        await self.connect()
+                    if not self.adapter.is_connected():
+                        logger.info(f"🔁 Retrying in {self.backoff_delay} seconds...")
                         await asyncio.sleep(self.backoff_delay)
                         self.backoff_delay = min(self.backoff_delay * 2, self.max_backoff)
                         continue
             await asyncio.sleep(5)
-
-
 
     def in_reset_window(self):
         try:
@@ -60,8 +58,8 @@ class IBConnectionManager:
             now = datetime.now(tz).strftime("%H:%M")
             return now == reset_time
         except Exception as e:
-            print(f"⚠️ Failed to check reset window: {e}")
+            logger.warning(f"⚠️ Failed to check reset window: {e}")
             return False
 
 # Singleton instance
-ib_connection_manager = IBConnectionManager()
+broker_connection_manager = BrokerConnectionManager()

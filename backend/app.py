@@ -1,38 +1,61 @@
-from fastapi import Request, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
-from pathlib import Path
+from __future__ import annotations
+
 import asyncio
 import json
 import os
+from pathlib import Path
 
-from backend.services.ib_connection_manager import ib_connection_manager
+
+
+from fastapi import Request, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+# ----------------------- NEW IMPORTS -----------------------
+from backend.engine.market_data.factory import get_market_data_client
+from backend.engine.tick_handler import TickHandler
+from backend.config.settings import get as settings_get
+
+# -----------------------------------------------------------
+
 from backend.services.validation import validate_trade
 from backend.routes import ticker_routes
 from backend.routes.ticker_routes import build_ticker_payload
-from backend.engine.ib_client import ib_client  # if not already imported
+
+from backend.engine.adapters.factory import get_adapter
 from backend.engine.trade_manager import TradeManager
 
+exec_adapter = get_adapter(settings_get("execution_adapter", "stub")) 
+trade_manager = TradeManager(exec_adapter)
+md_client = get_market_data_client(
+    settings_get("market_data_provider", "stub")
+)
+tick_handler: TickHandler | None = None
 
+from backend.engine.order_executor import OrderExecutor
 
-trade_manager = TradeManager(ib_client)
+order_executor = OrderExecutor(exec_adapter, trade_manager)
+
 
 app = FastAPI()
 
 @app.on_event("startup")
-async def startup_event():
-    await ib_client.connect()
-    await trade_manager.start()   # Add this line to start background tasks
-    await trade_manager.preload_volatility()
-    print("✅ Volatility preload complete.")
+async def startup_event() -> None:
+    await md_client.connect()              # stub feed starts here
+    global tick_handler
+    tick_handler = TickHandler(md_client, trade_manager)
+    await trade_manager.start()
+    # collect every symbol that’s currently in the trade list
+    symbols = [t["symbol"] for t in trade_manager.trades]
+    await trade_manager.preload_volatility(symbols)
+    await exec_adapter.connect()  
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
-    await trade_manager.stop()    # Add this line to stop background tasks
-    await ib_client.disconnect()
-
+async def shutdown_event() -> None:
+    await md_client.disconnect()
+    await trade_manager.stop()
+    await exec_adapter.disconnect()  
 
 TRADES_PATH = Path("backend/config/saved_trades.json")
 
@@ -51,9 +74,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-import asyncio
-from fastapi.responses import JSONResponse
 
 @app.get("/trades")
 def get_trades():
@@ -86,14 +106,6 @@ async def save_trades(request: Request):
         "dropped": len(data) - len(valid_trades)
     }
 
-
-    existing = [t for t in existing if t.get("symbol") != symbol.upper()]
-    existing.append(enriched)
-
-    with open(TRADES_PATH, "w") as f:
-        json.dump(existing, f, indent=2)
-
-    return {"message": f"{symbol.upper()} added to saved_trades.json"}
 
 @app.post("/activate_trade")
 async def activate_trade(request: Request):
@@ -175,15 +187,6 @@ async def get_schedule():
     except json.JSONDecodeError:
         return {"reset_time": "", "timezone": ""}
 
-@app.get("/status")
-async def status():
-    try:
-        if ib_connection_manager.is_connected():
-            return {"status": "connected"}
-        else:
-            return {"status": "disconnected"}
-    except Exception:
-        return {"status": "disconnected"}
 
 @app.get("/layout_config")
 def get_layout_config():
@@ -241,17 +244,9 @@ async def save_portfolio_config(request: Request):
     return {"status": "success"}
 
 
-@app.post("/connect_ib")
-async def connect_ib():
-    async with ib_connection_manager._reconnect_lock:
-        await ib_connection_manager.connect()
-    await asyncio.sleep(1)
-    return {"status": "connected" if ib_connection_manager.is_connected() else "disconnected"}
-
 # Mount all API routes from /backend/routes/
 app.include_router(ticker_routes.router)
 
-from backend.routes.ticker_routes import build_ticker_payload
 
 @app.post("/add_trade/{symbol}")
 async def add_trade(symbol: str):

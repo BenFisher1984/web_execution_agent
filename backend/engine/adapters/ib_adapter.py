@@ -1,12 +1,16 @@
+# backend/engine/adapters/ib_adapter.py
+
+from .base import BrokerAdapter
 from ib_insync import IB, Stock
-import math
 import asyncio
+import math
 import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-class IBClient:
+class IBAdapter(BrokerAdapter):
+
     def __init__(self, host='127.0.0.1', port=7497, client_id=2):
         self.host = host
         self.port = port
@@ -41,6 +45,9 @@ class IBClient:
             logger.info("Disconnected from IB Gateway")
         except Exception as e:
             logger.error(f"Disconnect failed: {e}")
+
+    def is_connected(self) -> bool:
+        return self.ib.isConnected()
 
     async def get_contract_details(self, symbol):
         try:
@@ -118,11 +125,10 @@ class IBClient:
                 else:
                     logger.error(f"No historical data available for fallback for {symbol}")
                     return None
-                
+
         except Exception as e:
             logger.error(f"get_last_price failed for {symbol}: {e}")
-            return None         
-
+            return None
 
     async def get_historical_data(self, symbol, lookback_days=30):
         try:
@@ -157,7 +163,7 @@ class IBClient:
             logger.error(f"Failed to fetch historical data for {symbol}: {e}")
             return None
 
-    async def subscribe_to_market_data(self, symbol, callback):
+    async def subscribe_market_data(self, symbol):
         try:
             if symbol in self.subscribed_contracts:
                 logger.info(f"Already subscribed to {symbol}")
@@ -171,9 +177,10 @@ class IBClient:
             ticker = self.ib.reqMktData(contract, "", False, False)
 
             def on_update(t):
-                callback(t)
-
+                logging.debug(f"Market data update: {t}")
+                # you could connect this to an event dispatcher later
             ticker.updateEvent += on_update
+
             self.subscribed_contracts[symbol] = ticker
             logger.info(f"Subscribed to market data for {symbol}")
         except Exception as e:
@@ -207,5 +214,14 @@ class IBClient:
         except Exception as e:
             logger.error(f"Failed to subscribe to batch market data: {e}")
 
-ib_client = IBClient()
-ib = ib_client.ib
+    async def execute_order(self, order_details):
+        # for now, treat same as place_order
+        return await self.place_order(order_details)
+
+    async def get_order_status(self, order_id):
+        # IB logic placeholder — for now, pretend filled
+        return {"order_id": order_id, "status": "filled"}
+
+    async def unsubscribe_market_data(self, symbol):
+        # optionally cancel IB market data subscription
+        pass

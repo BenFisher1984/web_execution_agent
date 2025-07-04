@@ -1,11 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from backend.engine.volatility import calculate_adr, calculate_atr
-from backend.engine.ib_client import ib_client
-import os, json
+from backend.engine.market_data.factory import get_market_data_client
+from backend.config.settings import get as settings_get
+from backend.services.validation import validate_trade
+import os
+import json
+import logging
 
 router = APIRouter()
-LAYOUT_CONFIG_PATH = os.path.join("backend", "config", "layout_config.json")
+logger = logging.getLogger(__name__)
 
+LAYOUT_CONFIG_PATH = os.path.join("backend", "config", "layout_config.json")
 
 def get_enabled_volatility_lookbacks():
     lookbacks = {}
@@ -21,37 +26,33 @@ def get_enabled_volatility_lookbacks():
                         "lookback" in field and
                         "volatility_type" in field
                     ):
-                        key = field["key"]  # e.g. "volatility.adr_20"
+                        key = field["key"]
                         vol_type = field["volatility_type"]
                         lookback = field["lookback"]
                         lookbacks[key] = (vol_type, lookback)
     except Exception as e:
-        print(f"⚠️ Failed to parse layout_config.json: {e}")
+        logger.warning(f"⚠️ Failed to parse layout_config.json: {e}")
     return lookbacks
 
-
 async def build_ticker_payload(symbol: str) -> dict:
-    contract = await ib_client.get_contract_details(symbol)
+    md_client = get_market_data_client(settings_get("market_data_provider"))
+
+    contract = await md_client.get_contract_details(symbol)
     if not contract:
         raise HTTPException(status_code=404, detail="Symbol not found")
 
-    details = await ib_client.ib.reqContractDetailsAsync(contract)
-    long_name = (
-        details[0].longName if details and getattr(details[0], "longName", None)
-        else contract.symbol
-    )
+    # using the contract, get extra details if needed
+    long_name = getattr(contract, "symbol", symbol.upper())
 
-    last = await ib_client.get_last_price(symbol)
+    last = await md_client.get_last_price(symbol)
     if last is None:
         raise HTTPException(status_code=400, detail="No market data available")
 
-    bars = await ib_client.get_historical_data(symbol, lookback_days=30)
+    bars = await md_client.get_historical_data(symbol, lookback_days=30)
     if not bars:
         raise HTTPException(status_code=400, detail="No historical data available")
-    
-    # extract closing prices from bars
-    historical_closes = [bar.close for bar in bars if bar.close is not None]
 
+    historical_closes = [bar.close for bar in bars if getattr(bar, "close", None) is not None]
 
     volatility_fields = get_enabled_volatility_lookbacks()
     flat_volatility = {}
@@ -73,34 +74,26 @@ async def build_ticker_payload(symbol: str) -> dict:
         "historical_closes": historical_closes
     }
 
-
 @router.get("/ticker/{symbol}")
 async def get_ticker_info(symbol: str):
     try:
         payload = await build_ticker_payload(symbol)
-        print("✅ /ticker response:", payload)
+        logger.info(f"✅ /ticker response: {payload}")
         return payload
     except Exception as e:
-        print(f"❌ Exception in /ticker: {e}")
+        logger.error(f"❌ Exception in /ticker: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
-from fastapi import Request
-from backend.services.validation import validate_trade
 
 @router.post("/validate_trade")
 async def validate_trade_route(request: Request):
     payload = await request.json()
     trade = payload.get("trade", {})
     portfolio = payload.get("portfolio", {})
-    # 🧪 Add this
-    print("🔍 Received portfolio:", portfolio)
+    logger.debug(f"🔍 Received portfolio: {portfolio}")
     result = validate_trade(trade, portfolio)
     return result
 
-from fastapi import APIRouter
-import json
-import os
-
+# rules routes kept identical
 rules_router = APIRouter()
 INDICATOR_CONFIG_PATH = os.path.join("backend", "config", "indicators_config.json")
 

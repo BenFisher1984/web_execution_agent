@@ -1,4 +1,4 @@
-from backend.engine.ib_client import IBClient
+from backend.engine.adapters.base import BrokerAdapter
 from backend.engine.volatility import calculate_adr, calculate_atr
 import json
 import os
@@ -6,6 +6,7 @@ import math
 import time
 from datetime import datetime
 import asyncio
+import statistics
 import logging
 from backend.config.status_enums import OrderStatus, TradeStatus
 from .entry_evaluator import EntryEvaluator
@@ -15,9 +16,10 @@ from .take_profit_evaluator import TakeProfitEvaluator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class TradeManager:
-    def __init__(self, ib_client: IBClient, order_executor=None, config_path="backend/config/saved_trades.json", enable_tasks=True):
-        self.ib = ib_client
+    def __init__(self, exec_adapter: BrokerAdapter, order_executor=None, config_path="backend/config/saved_trades.json", enable_tasks=True):
+        self.adapter = exec_adapter
         self.order_executor = order_executor
         self.config_path = config_path
         self.trades = self.load_trades()
@@ -27,6 +29,8 @@ class TradeManager:
         self.entry_evaluator = EntryEvaluator()
         self.stop_loss_evaluator = StopLossEvaluator()
         self.take_profit_evaluator = TakeProfitEvaluator()
+        self.volatility_cache: dict[str, dict] = {}
+        self.contract_details: dict[str, dict] = {}
         self._debounce_task = None
         self._sync_task = None
 
@@ -99,13 +103,13 @@ class TradeManager:
 
     async def sync_with_broker(self):
         try:
-            positions = self.ib.ib.positions()
-            for position in positions:
-                symbol = position.contract.symbol
-                trade = self.trade_index.get(symbol)
+            positions = await self.adapter.get_positions()
+            for pos in positions:
+                symbol = pos["symbol"]
+                trade  = self.trade_index.get(symbol)
                 if trade and trade.get("trade_status") in ["live", TradeStatus.LIVE.value]:
-                    trade["filled_qty"] = position.position
-                    trade["executed_price"] = position.avgCost
+                    trade["filled_qty"]     = pos["qty"]
+                    trade["executed_price"] = pos["avg_price"]
                     logger.info(f"Synced trade for {symbol} with broker position")
             self.save_trades()
         except asyncio.TimeoutError:
@@ -113,50 +117,57 @@ class TradeManager:
         except Exception as e:
             logger.error(f"Failed to sync positions: {e}")
 
-    async def preload_contracts(self):
-        symbols = [trade.get("symbol") for trade in self.trades if trade.get("symbol")]
-        contracts = await self.ib.get_contract_details_batch(symbols)
-        for trade in self.trades:
-            symbol = trade.get("symbol")
-            contract = contracts.get(symbol)
-            if contract:
-                trade["contract"] = contract
-                logger.debug(f"Preloaded contract for {symbol}")
-            else:
-                logger.error(f"Could not preload contract for {symbol}")
 
-    async def preload_volatility(self):
+    async def preload_contracts(self, symbols: list[str]):
+        """
+        Fetch and cache contract details for the given symbols.
+
+        For the stub adapter there is nothing to preload, so we skip the call.
+        """
+        if self.adapter.name == "stub":
+            logger.info("Skipping contract preload for stub adapter")
+            return
+
+        # TODO: implement get_contract_details_batch on real adapters
+        try:
+            contract_details = await self.adapter.get_contract_details_batch(symbols)
+            for symbol, details in contract_details.items():
+                self.contract_details[symbol] = details
+        except Exception as e:
+            logger.error(f"Failed to preload contracts: {e}")
+
+
+    async def preload_volatility(self, symbols: list[str], lookback: int = 30):
+        """
+        Pull daily bars via the execution adapter and cache
+        a simple price volatility metric.
+
+        Skips entirely for the stub adapter.
+        """
+        if self.adapter.name == "stub":
+            logger.info("Skipping volatility preload for stub adapter")
+            return
+
         logger.info("Preloading volatility...")
-        for trade in self.trades:
-            symbol = trade.get("symbol")
-            if not symbol:
-                logger.warning("Skipping trade with no symbol")
-                continue
-            if symbol in self.ib.volatility_cache and self.ib.volatility_cache[symbol].get("last_updated", 0) > datetime.now().timestamp() - 86400:
-                cached = self.ib.volatility_cache[symbol]
-                trade["volatility"] = {"adr": cached["adr"], "atr": cached["atr"]}
-                logger.debug(f"Using cached volatility for {symbol}")
-                continue
+        for symbol in symbols:
             try:
-                lookback = 20
-                bars = await self.ib.get_historical_data(symbol, lookback_days=lookback)
+                cache_entry = self.volatility_cache.get(symbol)
+                if cache_entry and cache_entry["last_updated"] > datetime.now().timestamp() - 86_400:
+                    continue
+
+                bars = await self.adapter.get_history(symbol, days=lookback)
                 if not bars:
                     logger.warning(f"No bars for {symbol}")
                     continue
-                adr = calculate_adr(bars, options={"lookback": lookback})
-                atr = calculate_atr(bars, options={"lookback": 14})
-                if adr is not None and atr is not None:
-                    self.ib.volatility_cache[symbol] = {
-                        "adr": adr,
-                        "atr": atr,
-                        "last_updated": datetime.now().timestamp()
-                    }
-                    trade["volatility"] = {"adr": adr, "atr": atr}
-                    logger.info(f"Cached volatility for {symbol}: ADR={adr}%, ATR={atr}%")
-                else:
-                    logger.warning(f"Partial or no volatility data for {symbol}: ADR={adr}, ATR={atr}")
+
+                vol = statistics.pstdev(bars)
+                self.volatility_cache[symbol] = {
+                    "volatility": vol,
+                    "last_updated": datetime.now().timestamp(),
+                }
             except Exception as e:
                 logger.error(f"Failed to preload volatility for {symbol}: {e}")
+
         self.save_trades()
 
     async def evaluate_trades(self, rolling_window=None):
@@ -167,7 +178,7 @@ class TradeManager:
 
             try:
                 if order_status == OrderStatus.ACTIVE.value and trade_status == TradeStatus.PENDING.value:
-                    last_price = await self.ib.get_last_price(symbol)
+                    last_price = await self.adapter.get_market_price(symbol)
                     if last_price is None:
                         continue
 
@@ -185,7 +196,7 @@ class TradeManager:
                         continue
 
                 if trade_status == TradeStatus.LIVE.value:
-                    last_price = await self.ib.get_last_price(symbol)
+                    last_price = await self.adapter.get_market_price(symbol)
                     if last_price is None:
                         continue
 

@@ -1,4 +1,6 @@
 {
+  "execution_adapter": "ib",
+  "market_data_provider": "stub",
   "reset_time": "18:00",
   "timezone": "Australia/Sydney"
 }
