@@ -17,6 +17,8 @@ class StubExecutionAdapter(BrokerAdapter):
         self._next_id = itertools.count(1)
         self._fill_queue: asyncio.Queue[Fill] = asyncio.Queue()
         self._positions: dict[str, Position] = {}
+        super().__init__(name="stub")
+
 
     # ---------- lifecycle ----------
     async def connect(self) -> None:
@@ -96,6 +98,9 @@ class StubExecutionAdapter(BrokerAdapter):
             {"symbol": symbol, "price": random.uniform(90, 110)}
             for _ in range(lookback_days)
         ]
+
+    async def get_contract_details_batch(self, symbols: list[str]):
+        return {symbol: {"symbol": symbol} for symbol in symbols}
 
     async def subscribe_market_data(self, symbol):
         # nothing to do

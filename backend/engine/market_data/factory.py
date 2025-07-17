@@ -13,11 +13,13 @@ from typing import Dict, Type
 from backend.engine.market_data.base import MarketDataClient
 
 # Registry.  We'll populate this as we add adapters.
-_PROVIDERS: Dict[str, str] = {
+_PROVIDERS = {
     "stub": "backend.engine.market_data.stub_client:StubMarketDataClient",
-    # "ib":  "backend.engine.market_data.ib_client:IBMarketDataClient",
-    # "polygon": "backend.engine.market_data.polygon_client:PolygonMarketDataClient",
+    "polygon": "backend.engine.market_data.polygon_client:PolygonMarketDataClient",
+    "ib": "backend.engine.market_data.ib_client:IBMarketDataClient"
 }
+
+
 
 
 def _load(path: str) -> Type[MarketDataClient]:

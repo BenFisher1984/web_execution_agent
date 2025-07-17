@@ -1,0 +1,45 @@
+{
+  "trades": [
+    {
+      "symbol": "AAPL",
+      "quantity": 100,
+      "direction": "Long",
+      "order_status": "Working",
+      "trade_status": "Pending",
+      "created_at": "2025-01-07T10:00:00Z",
+      "updated_at": "2025-01-07T10:00:00Z",
+      
+      "entry_rule": "PRICE_ABOVE",
+      "entry_rule_price": 150.00,
+      
+      "initial_stop_price": 145.00,
+      "trailing_stop_rule": {
+        "indicator": "ema",
+        "parameters": {
+          "lookback": 20,
+          "offset": 2.0
+        }
+      },
+      
+      "take_profit_price": 160.00,
+      "take_profit_type": "percentage",
+      "take_profit_quantity": 50,
+      "additional_take_profits": [
+        {
+          "price": 165.00,
+          "type": "percentage",
+          "quantity": 50
+        }
+      ],
+      
+      "portfolio_filters": {
+        "max_loss_per_trade": 500.00,
+        "max_position_size": 1000,
+        "max_concentration": 0.1
+      },
+      
+      "strategy": "Basic Test Strategy",
+      "notes": "Test trade for modular architecture validation"
+    }
+  ]
+} 

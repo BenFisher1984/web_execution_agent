@@ -1,64 +1,55 @@
 [
   {
+    "editing": true,
     "symbol": "AAPL",
+    "name": "AAPL",
+    "last_price": 209.9,
+    "volatility": {
+      "adr_20": 1.87,
+      "atr_14": 2
+    },
     "direction": "Long",
-    "order_status": "Active",
+    "time_in_force": "GTC",
+    "order_type": "Market",
+    "calculated_quantity": 50,
+    "usd": 11000,
+    "percent_balance": 11,
+    "usd_risk": 1000,
+    "percent_risk": 1,
+    "entry_rules": [
+      {
+        "primary_source": "Price",
+        "condition": ">=",
+        "secondary_source": "Custom",
+        "value": "220"
+      }
+    ],
+    "initial_stop_rules": [
+      {
+        "primary_source": "Price",
+        "condition": "<=",
+        "secondary_source": "Custom",
+        "value": "200"
+      }
+    ],
+    "trailing_stop_rules": [
+      {
+        "primary_source": "Price",
+        "condition": "<=",
+        "value": 206.67847646522864,
+        "secondary_source": "EMA 21"
+      }
+    ],
+    "take_profit_rules": [
+      {
+        "primary_source": "Custom",
+        "condition": ">=",
+        "secondary_source": "Custom",
+        "value": "250"
+      }
+    ],
+    "order_status": "active",
     "trade_status": "Pending",
-    "entry_rule": "Custom",
-    "entry_rule_price": 150.0,
-    "initial_stop_rule": "Custom",
-    "initial_stop_price": 145.0,
-    "trailing_stop_rule": {
-      "type": "ema",
-      "length": 20,
-      "offset": 0.5,
-      "price_basis": "last_trade",
-      "update": "tick",
-      "trigger_mode": "intraday",
-      "risk_amount": null
-    },
-    "take_profit_type": "Custom",
-    "take_profit_price": 160.0,
-    "quantity": 100
-  },
-  {
-    "symbol": "MSFT",
-    "direction": "Short",
-    "order_status": "Contingent Order Submitted",
-    "trade_status": "Live",
-    "entry_rule": "Custom",
-    "entry_rule_price": 300.0,
-    "initial_stop_rule": "Custom",
-    "initial_stop_price": 310.0,
-    "trailing_stop_rule": {
-      "type": "sma",
-      "length": 15,
-      "offset": 0.3,
-      "price_basis": "last_trade",
-      "update": "tick",
-      "trigger_mode": "intraday",
-      "risk_amount": null
-    },
-    "take_profit_type": "Custom",
-    "take_profit_price": 290.0,
-    "filled_qty": 50,
-    "executed_price": 305.0,
-    "quantity": 50
-  },
-  {
-    "symbol": "GOOG",
-    "direction": "Long",
-    "order_status": "Inactive",
-    "trade_status": "Closed",
-    "entry_rule": "Custom",
-    "entry_rule_price": 2500.0,
-    "initial_stop_rule": "Custom",
-    "initial_stop_price": 2450.0,
-    "take_profit_type": "Custom",
-    "take_profit_price": 2600.0,
-    "filled_qty": 10,
-    "executed_price": 2520.0,
-    "exit_price": 2590.0,
-    "exit_qty": 10
+    "action": "--"
   }
 ]

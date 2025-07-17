@@ -6,36 +6,32 @@ def evaluator():
     return EntryEvaluator()
 
 def test_entry_greater_than(evaluator):
-    trade = {
+    test_trade = {
         "entry_condition": ">=",
-        "entry_rule": "Custom",
-        "entry_rule_price": 100
+        "entry_rules": [{"primary_source": "Custom", "condition": ">=", "secondary_source": "Custom", "value": 100}]
     }
-    assert evaluator.evaluate_entry(trade, 105) == True
-    assert evaluator.evaluate_entry(trade, 99) == False
+    assert evaluator.evaluate_entry(test_trade, 105) == True
+    assert evaluator.evaluate_entry(test_trade, 99) == False
 
 def test_entry_less_than(evaluator):
-    trade = {
+    test_trade = {
         "entry_condition": "<=",
-        "entry_rule": "Custom",
-        "entry_rule_price": 100
+        "entry_rules": [{"primary_source": "Custom", "condition": "<=", "secondary_source": "Custom", "value": 100}]
     }
-    assert evaluator.evaluate_entry(trade, 95) == True
-    assert evaluator.evaluate_entry(trade, 101) == False
+    assert evaluator.evaluate_entry(test_trade, 95) == True
+    assert evaluator.evaluate_entry(test_trade, 101) == False
 
 def test_entry_missing_rule_price_fallback(evaluator):
-    trade = {
+    test_trade = {
         "entry_condition": ">=",
-        "entry_rule": "Custom",
-        "entry_trigger": 200
+        "entry_rules": [{"primary_source": "Custom", "condition": ">=", "secondary_source": "Custom", "value": 200}]
     }
     # no entry_rule_price set, so should fallback to entry_trigger
-    assert evaluator.evaluate_entry(trade, 201) == True
+    assert evaluator.evaluate_entry(test_trade, 201) == True
 
 def test_entry_unsupported_rule(evaluator):
-    trade = {
+    test_trade = {
         "entry_condition": ">=",
-        "entry_rule": "MovingAverage",  # unsupported currently
-        "entry_rule_price": 100
+        "entry_rules": [{"primary_source": "MovingAverage", "condition": ">=", "secondary_source": "Custom", "value": 100}]
     }
-    assert evaluator.evaluate_entry(trade, 110) == False
+    assert evaluator.evaluate_entry(test_trade, 110) == False

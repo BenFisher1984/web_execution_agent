@@ -8,7 +8,6 @@ export const useTickerLookup = () => {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.warn("⚠️ Ticker lookup failed:", error.message);
       return null;
     }
   };

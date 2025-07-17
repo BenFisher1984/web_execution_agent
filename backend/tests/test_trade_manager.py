@@ -37,12 +37,10 @@ async def trade_manager(mocker):
             "direction": "Long",
             "order_status": OrderStatus.ACTIVE.value,
             "trade_status": TradeStatus.PENDING.value,
-            "entry_rule": "Custom",
-            "entry_rule_price": 150.0,
-            "quantity": 100,
-            "initial_stop_price": 145.0,
-            "take_profit_price": 155.0,
-            "take_profit_type": "static",
+            "entry_rules": [{"primary_source": "Custom", "condition": ">=", "secondary_source": "Custom", "value": 150.0}],
+            "initial_stop_rules": [{"primary_source": "Price", "condition": "<=", "secondary_source": "Custom", "value": 100.0}],
+            "trailing_stop_rules": [{"primary_source": "Price", "condition": "<=", "secondary_source": "EMA 8"}],
+            "take_profit_rules": [{"primary_source": "Price", "condition": ">=", "secondary_source": "Custom", "value": 200.0}]
         }
     ]
     tm.trade_index = {t["symbol"]: t for t in tm.trades}

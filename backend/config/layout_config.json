@@ -1,6 +1,6 @@
 [
   {
-    "section": "Trade Summary",
+    "section": "Controls",
     "fields": [
       {
         "key": "action",
@@ -10,6 +10,26 @@
         "options": ["Save", "Activate", "Modify", "Cancel"],
         "default": "Save"
       },
+      {
+        "key": "strategy",
+        "label": "Strategy",
+        "type": "select",
+        "editable": true,
+        "options": ["Strategy 1", "Strategy 2", "Strategy 3"],
+        "default": "Strategy 1"
+      },
+      {
+        "key": "portfolio",
+        "label": "Portfolio",
+        "type": "checkbox",
+        "editable": true,
+        "default": false
+      }
+    ]
+  },
+  {
+    "section": "Status",
+    "fields": [
       {
         "key": "order_status",
         "label": "Order Status",
@@ -21,7 +41,12 @@
         "label": "Trade Status",
         "type": "readonly",
         "default": "--"
-      },
+      }
+    ]
+  },
+  {
+    "section": "Trade Details",
+    "fields": [
       {
         "key": "symbol",
         "label": "Symbol",
@@ -42,25 +67,12 @@
         "readonly": true
       },
       {
-        "key": "calculated_quantity",
-        "label": "Quantity",
-        "type": "number",
-        "readonly": true,
-        "mandatory": true
-      },
-      {
-        "key": "tranche",
-        "label": "Tranche",
-        "type": "text",
+        "key": "direction",
+        "label": "Direction",
+        "type": "select",
         "editable": true,
-        "enabled": false
-      },
-      {
-        "key": "strategy",
-        "label": "Strategy",
-        "type": "text",
-        "editable": true,
-        "enabled": false
+        "mandatory": true,
+        "options": ["Long", "Short"]
       }
     ]
   },
@@ -68,47 +80,68 @@
     "section": "Execution Rules",
     "fields": [
       {
-        "key": "risk_pct",
-        "label": "Size (Risk %)",
-        "type": "number",
-        "editable": true,
-        "mandatory": true
-      },
-      {
-        "key": "direction",
-        "label": "Direction",
-        "type": "select",
-        "editable": true,
-        "options": ["Long", "Short"],
-        "mandatory": true
-      },
-      {
         "key": "time_in_force",
         "label": "Time In Force",
-        "type": "select",
+        "mandatory": true,
         "editable": true,
-        "options": ["Day", "GTC"],
-        "mandatory": true
+        "type": "select",
+        "options": ["Day", "GTC"]
       },
       {
         "key": "order_type",
         "label": "Order Type",
-        "type": "select",
+        "mandatory": true,
         "editable": true,
-        "options": ["Market", "Limit"],
+        "type": "select",
+        "options": ["Market", "Limit"]
+      }
+    ]
+  },
+  {
+    "section": "Trade Size",
+    "fields": [
+      {
+        "key": "calculated_quantity",
+        "label": "Quantity",
+        "type": "number",
+        "editable": true,
+        "mandatory": true
+      },
+      {
+        "key": "usd",
+        "label": "USD",
+        "type": "number",
+        "editable": true,
+        "mandatory": true
+      },
+      {
+        "key": "percent_balance",
+        "label": "% Balance",
+        "type": "number",
+        "editable": true,
+        "mandatory": true
+      },
+      {
+        "key": "usd_risk",
+        "label": "USD Risk",
+        "type": "number",
+        "editable": true,
+        "mandatory": true
+      },
+      {
+        "key": "percent_risk",
+        "label": "% Risk",
+        "type": "number",
+        "editable": true,
         "mandatory": true
       }
     ]
   },
- 
-{
-  "entry_rules_section": {
-    "name": "Entry Rules",
-    "type": "array",
-    "addable": true,
+  {
+    "section": "Entry Rules",
     "fields": [
       {
-        "key": "primary_source",
+        "key": "entry_rules.0.primary_source",
         "label": "Primary Source",
         "type": "select",
         "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
@@ -116,7 +149,7 @@
         "editable": false
       },
       {
-        "key": "condition",
+        "key": "entry_rules.0.condition",
         "label": "Condition",
         "type": "select",
         "options": [">=", "<=", "=", "<", ">"],
@@ -124,7 +157,7 @@
         "editable": false
       },
       {
-        "key": "secondary_source",
+        "key": "entry_rules.0.secondary_source",
         "label": "Secondary Source",
         "type": "select",
         "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
@@ -132,7 +165,7 @@
         "editable": false
       },
       {
-        "key": "value",
+        "key": "entry_rules.0.value",
         "label": "Value",
         "type": "number",
         "mandatory": true,
@@ -140,13 +173,11 @@
       }
     ]
   },
-
-  "initial_stop_rule_section": {
-    "name": "Initial Stop Rule",
-    "type": "group",
+  {
+    "section": "Stop Rules",
     "fields": [
       {
-        "key": "primary_source",
+        "key": "initial_stop_rules.0.primary_source",
         "label": "Primary Source",
         "type": "select",
         "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
@@ -154,7 +185,7 @@
         "editable": false
       },
       {
-        "key": "condition",
+        "key": "initial_stop_rules.0.condition",
         "label": "Condition",
         "type": "select",
         "options": [">=", "<=", "=", "<", ">"],
@@ -162,7 +193,7 @@
         "editable": false
       },
       {
-        "key": "secondary_source",
+        "key": "initial_stop_rules.0.secondary_source",
         "label": "Secondary Source",
         "type": "select",
         "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
@@ -170,7 +201,7 @@
         "editable": false
       },
       {
-        "key": "value",
+        "key": "initial_stop_rules.0.value",
         "label": "Value",
         "type": "number",
         "mandatory": true,
@@ -178,14 +209,11 @@
       }
     ]
   },
-
-  "trailing_stop_rules_section": {
-    "name": "Trailing Stop Rules",
-    "type": "array",
-    "addable": true,
+  {
+    "section": "Trailing Stop Rules",
     "fields": [
       {
-        "key": "primary_source",
+        "key": "trailing_stop_rules.0.primary_source",
         "label": "Primary Source",
         "type": "select",
         "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
@@ -193,7 +221,7 @@
         "editable": false
       },
       {
-        "key": "condition",
+        "key": "trailing_stop_rules.0.condition",
         "label": "Condition",
         "type": "select",
         "options": [">=", "<=", "=", "<", ">"],
@@ -201,7 +229,7 @@
         "editable": false
       },
       {
-        "key": "secondary_source",
+        "key": "trailing_stop_rules.0.secondary_source",
         "label": "Secondary Source",
         "type": "select",
         "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
@@ -209,7 +237,7 @@
         "editable": false
       },
       {
-        "key": "value",
+        "key": "trailing_stop_rules.0.value",
         "label": "Value",
         "type": "number",
         "mandatory": false,
@@ -217,14 +245,11 @@
       }
     ]
   },
-
-  "take_profit_rules_section": {
-    "name": "Take Profit Rules",
-    "type": "array",
-    "addable": true,
+  {
+    "section": "Take Profit Rules",
     "fields": [
       {
-        "key": "primary_source",
+        "key": "take_profit_rules.0.primary_source",
         "label": "Primary Source",
         "type": "select",
         "options": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"],
@@ -232,7 +257,7 @@
         "editable": false
       },
       {
-        "key": "condition",
+        "key": "take_profit_rules.0.condition",
         "label": "Condition",
         "type": "select",
         "options": [">=", "<=", "=", "<", ">"],
@@ -240,7 +265,7 @@
         "editable": false
       },
       {
-        "key": "secondary_source",
+        "key": "take_profit_rules.0.secondary_source",
         "label": "Secondary Source",
         "type": "select",
         "options": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"],
@@ -248,38 +273,14 @@
         "editable": false
       },
       {
-        "key": "value",
+        "key": "take_profit_rules.0.value",
         "label": "Value",
         "type": "number",
         "mandatory": false,
         "editable": true
       }
     ]
-  }
-},
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  },
   {
     "section": "Live Risk",
     "fields": [

@@ -25,6 +25,9 @@ class Position(TypedDict):
     avg_price: float
 
 class BrokerAdapter(ABC):
+    def __init__(self, name: str):
+        self.name = name
+
 
     @abstractmethod
     async def connect(self):
@@ -95,5 +98,33 @@ class BrokerAdapter(ABC):
     async def get_historical_data(self, symbol: str, lookback_days: int):
         """
         Fetch historical price data for a symbol.
+        """
+        pass
+
+    @abstractmethod
+    async def get_positions(self):
+        """
+        Get current positions from broker.
+        """
+        pass
+
+    @abstractmethod
+    async def get_contract_details_batch(self, symbols: list[str]):
+        """
+        Get contract details for multiple symbols at once.
+        """
+        pass
+
+    @abstractmethod
+    async def place_order(self, order: Order):
+        """
+        Place an order with the broker.
+        """
+        pass
+
+    @abstractmethod
+    async def stream_fills(self):
+        """
+        Stream fills from the broker.
         """
         pass

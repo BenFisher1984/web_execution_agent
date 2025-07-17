@@ -6,10 +6,10 @@ def test_activate_trade_valid():
         "symbol": "AAPL",
         "direction": "buy",
         "entry_trigger": 200.0,
-        "initial_stop_rule": {
-            "type": "custom",
-            "price": 190.0
-        },
+        "entry_rules": [{"primary_source": "Custom", "condition": ">=", "secondary_source": "Custom", "value": 100}],
+        "initial_stop_rules": [{"primary_source": "Price", "condition": "<=", "secondary_source": "Custom", "value": 90}],
+        "trailing_stop_rules": [{"primary_source": "Price", "condition": "<=", "secondary_source": "EMA 8"}],
+        "take_profit_rules": [{"primary_source": "Price", "condition": ">=", "secondary_source": "Custom", "value": 120}],
         "portfolio_value": 100000,
         "risk_pct": 1.0,
         "order_type": "market",

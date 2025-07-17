@@ -1,0 +1,118 @@
+{
+  "strategies": [
+    {
+      "id": "ema_crossover_strategy",
+      "name": "EMA Crossover Strategy",
+      "description": "Buy when fast EMA crosses above slow EMA, with trailing stops based on EMA",
+      "entry_condition": {
+        "type": "ema_crossover",
+        "symbol": "AAPL",
+        "value": 0,
+        "ema_fast": 8,
+        "ema_slow": 21,
+        "signal": "bullish"
+      },
+      "contingent_orders": [
+        {
+          "order_type": "market",
+          "quantity": 50,
+          "quantity_type": "percentage",
+          "trigger_condition": {
+            "type": "ema_crossover",
+            "ema_fast": 8,
+            "ema_slow": 21,
+            "signal": "bearish"
+          }
+        }
+      ],
+      "risk_conditions": [
+        {
+          "type": "unrealized_pnl_percent",
+          "symbol": "AAPL",
+          "value": -5.0
+        }
+      ],
+      "created_at": "2025-01-04T19:00:00",
+      "updated_at": "2025-01-04T19:00:00"
+    },
+    {
+      "id": "moving_average_strategy",
+      "name": "Moving Average Strategy",
+      "description": "Buy when price is above EMA 21, sell when price falls below SMA 50",
+      "entry_condition": {
+        "type": "moving_average_above",
+        "symbol": "MSFT",
+        "value": 0,
+        "ma_config": {
+          "type": "ema",
+          "length": 21
+        }
+      },
+      "contingent_orders": [
+        {
+          "order_type": "market",
+          "quantity": 100,
+          "quantity_type": "percentage",
+          "trigger_condition": {
+            "type": "moving_average_below",
+            "ma_config": {
+              "type": "sma",
+              "length": 50
+            }
+          }
+        }
+      ],
+      "risk_conditions": [
+        {
+          "type": "unrealized_pnl_percent",
+          "symbol": "MSFT",
+          "value": -3.0
+        }
+      ],
+      "created_at": "2025-01-04T19:00:00",
+      "updated_at": "2025-01-04T19:00:00"
+    },
+    {
+      "id": "adr_trailing_stop",
+      "name": "ADR Trailing Stop Strategy",
+      "description": "Buy AAPL when price >= $200, with trailing stops 1 ADR below entry",
+      "entry_condition": {
+        "type": "price_above",
+        "symbol": "AAPL",
+        "value": 200.0
+      },
+      "contingent_orders": [
+        {
+          "order_type": "market",
+          "quantity": 25,
+          "quantity_type": "percentage",
+          "trigger_condition": {
+            "type": "adr_below",
+            "adr_period": 20,
+            "value": 1.0
+          }
+        },
+        {
+          "order_type": "market",
+          "quantity": 25,
+          "quantity_type": "percentage",
+          "trigger_condition": {
+            "type": "ema_crossover",
+            "ema_fast": 8,
+            "ema_slow": 21,
+            "signal": "bearish"
+          }
+        }
+      ],
+      "risk_conditions": [
+        {
+          "type": "unrealized_pnl_percent",
+          "symbol": "AAPL",
+          "value": -2.0
+        }
+      ],
+      "created_at": "2025-01-04T19:00:00",
+      "updated_at": "2025-01-04T19:00:00"
+    }
+  ]
+} 

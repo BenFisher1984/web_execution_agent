@@ -12,7 +12,8 @@ from backend.engine.adapters.base import BrokerAdapter
 
 _PROVIDERS = {
     "stub": "backend.engine.adapters.stub_adapter:StubExecutionAdapter",
-    "ib":   "backend.engine.adapters.ib_adapter:IbExecutionAdapter",
+    "ib":   "backend.engine.adapters.ib_adapter:IBAdapter",
+
 }
 
 

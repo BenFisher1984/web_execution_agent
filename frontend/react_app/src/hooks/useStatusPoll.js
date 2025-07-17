@@ -1,7 +1,7 @@
 // src/hooks/useStatusPoll.js
 import { useState, useEffect } from "react";
 
-export const useStatusPoll = (intervalMs = 5000, endpoint = "http://localhost:8000/status") => {
+export const useStatusPoll = (intervalMs = 5000, endpoint = "http://localhost:8000/health") => {
   const [status, setStatus] = useState("DISCONNECTED");
 
   useEffect(() => {
@@ -16,10 +16,14 @@ export const useStatusPoll = (intervalMs = 5000, endpoint = "http://localhost:80
         if (!response.ok) throw new Error("Status check failed");
 
         const data = await response.json();
-        setStatus(data.status.toUpperCase());
+        // New logic: only show CONNECTED if both API and market_data are connected
+        if (data.status === "ok" && data.market_data === "connected") {
+          setStatus("CONNECTED");
+        } else {
+          setStatus("DISCONNECTED");
+        }
       } catch (error) {
         setStatus("DISCONNECTED");
-        console.warn("⚠️ Status poll error:", error.message);
       }
     };
 

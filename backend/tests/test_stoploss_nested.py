@@ -4,14 +4,11 @@ from backend.engine.indicators import RollingWindow
 
 async def test_stop_loss_nested():
     # build a simulated trade exactly like saved_trades.json
-    trade = {
+    test_trade = {
         "symbol": "AAPL",
         "direction": "Long",
         "initial_stop_price": 180.0,
-        "trailing_stop_rule": {
-            "indicator": "ema",
-            "parameters": { "lookback": 8, "offset": 0.5 }
-        }
+        "trailing_stop_rules": [{"primary_source": "Price", "condition": "<=", "secondary_source": "EMA 8"}]
     }
 
     # create a fake rolling window with enough prices
@@ -22,7 +19,7 @@ async def test_stop_loss_nested():
     evaluator = StopLossEvaluator()
 
     # call it with a fake current price
-    result = evaluator.evaluate_stop(trade, current_price=185.0, rolling_window=window)
+    result = evaluator.evaluate_stop(test_trade, current_price=185.0, rolling_window=window)
 
     print("✅ test result:", result)
 

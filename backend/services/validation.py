@@ -21,7 +21,7 @@ def get_mandatory_fields_from_layout():
 
 def get_nested_field(data, key):
     """
-    Supports dot-notation keys, e.g. volatility.adr_20
+    Supports dot-notation keys, e.g. volatility.adr_20 and array indexes like entry_rules.0.value
     """
     try:
         if "." not in key:
@@ -29,6 +29,16 @@ def get_nested_field(data, key):
         for part in key.split("."):
             if isinstance(data, dict):
                 data = data.get(part)
+            elif isinstance(data, list):
+                # Handle array indexes
+                if part.isdigit():
+                    index = int(part)
+                    if 0 <= index < len(data):
+                        data = data[index]
+                    else:
+                        return None
+                else:
+                    return None
             else:
                 return None
         return data

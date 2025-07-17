@@ -5,24 +5,27 @@
   "required": [
     "symbol",
     "calculated_quantity",
-    "risk_pct",
+    "percent_risk",
     "direction",
     "time_in_force",
     "order_type",
     "entry_rules",
-    "initial_stop_rule"
+    "initial_stop_rules",
+    "usd"
   ],
   "properties": {
     "symbol": { "type": "string", "minLength": 1 },
     "calculated_quantity": { "type": "number", "minimum": 0 },
-    "risk_pct": { "type": "number", "minimum": 0 },
+    "percent_risk": { "type": "number", "minimum": 0 },
     "direction": { "type": "string", "enum": ["Long", "Short"] },
     "time_in_force": { "type": "string", "enum": ["Day", "GTC"] },
     "order_type": { "type": "string", "enum": ["Market", "Limit"] },
-    
+    "usd": { "type": "number", "minimum": 0 },
+    "percent_balance": { "type": "number", "minimum": 0 },
+    "usd_risk": { "type": "number", "minimum": 0 },
+
     "entry_rules": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "properties": {
@@ -51,31 +54,34 @@
       }
     },
 
-    "initial_stop_rule": {
-      "type": "object",
-      "properties": {
-        "primary_source": {
-          "type": "string",
-          "enum": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"]
+    "initial_stop_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "primary_source": {
+            "type": "string",
+            "enum": ["Price", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR", "Custom"]
+          },
+          "condition": {
+            "type": "string",
+            "enum": [">=", "<=", "=", "<", ">"]
+          },
+          "secondary_source": {
+            "type": "string",
+            "enum": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"]
+          },
+          "value": {
+            "type": ["string", "number", "null"]
+          },
+          "extra_params": {
+            "type": "object",
+            "additionalProperties": true
+          }
         },
-        "condition": {
-          "type": "string",
-          "enum": [">=", "<=", "=", "<", ">"]
-        },
-        "secondary_source": {
-          "type": "string",
-          "enum": ["Custom", "EMA 8", "SMA 8", "EMA 21", "SMA 21", "ADR", "ATR"]
-        },
-        "value": {
-          "type": ["string", "number", "null"]
-        },
-        "extra_params": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      },
-      "required": ["primary_source", "condition", "secondary_source", "value"],
-      "additionalProperties": false
+        "required": ["primary_source", "condition", "secondary_source", "value"],
+        "additionalProperties": false
+      }
     },
 
     "trailing_stop_rules": {

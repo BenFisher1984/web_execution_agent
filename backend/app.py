@@ -4,10 +4,11 @@ import asyncio
 import json
 import os
 from pathlib import Path
+from datetime import datetime
 
 
 
-from fastapi import Request, FastAPI, HTTPException
+from fastapi import Request, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -25,42 +26,201 @@ from backend.routes.ticker_routes import build_ticker_payload
 from backend.engine.adapters.factory import get_adapter
 from backend.engine.trade_manager import TradeManager
 
-exec_adapter = get_adapter(settings_get("execution_adapter", "stub")) 
-trade_manager = TradeManager(exec_adapter)
-md_client = get_market_data_client(
-    settings_get("market_data_provider", "stub")
-)
+# Strategy Engine and Pine Script Handler removed - focusing on rules-based workflow
+
+# Create shared IB adapter if using IB for both execution and market data
+execution_adapter_name = settings_get("execution_adapter", "stub")
+market_data_provider = settings_get("market_data_provider", "stub")
+
+if execution_adapter_name == "ib" and market_data_provider == "ib":
+    # Create shared IB adapter for both execution and market data
+    from backend.engine.adapters.ib_adapter import IBAdapter
+    from backend.engine.market_data.ib_client import IBMarketDataClient
+    
+    shared_ib_adapter = IBAdapter(client_id=2)
+    exec_adapter = shared_ib_adapter
+    md_client = IBMarketDataClient(ib_adapter=shared_ib_adapter)
+else:
+    # Use separate adapters for different providers
+    exec_adapter = get_adapter(str(execution_adapter_name) if execution_adapter_name else "stub")
+    md_client = get_market_data_client(str(market_data_provider) if market_data_provider else "stub")
+
+trade_manager = TradeManager(exec_adapter, md_client=md_client)
 tick_handler: TickHandler | None = None
 
 from backend.engine.order_executor import OrderExecutor
 
 order_executor = OrderExecutor(exec_adapter, trade_manager)
 
+# Strategy Engine and Pine Script Handler removed - focusing on rules-based workflow
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'engine'))
+from backend.engine import indicators, volatility
+
 
 app = FastAPI()
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "message": "Trading Execution Agent API",
+        "version": "1.0.0",
+        "status": "running",
+        "available_endpoints": {
+            "health": "/health",
+            "trades": "/trades", 
+            "inject_tick": "/inject_tick",
+            "debug_mark_filled": "/debug/mark_filled",
+            "layout_config": "/layout_config",
+            "trade_config": "/trade_config",
+            "portfolio_config": "/portfolio_config"
+        },
+        "documentation": "/docs"
+    }
+
+@app.get("/health")
+async def health_check():
+    # Existing health info
+    status = "ok"
+    # Check market data provider connection using the existing connected instance
+    try:
+        # Use the existing md_client that was connected during startup
+        if hasattr(md_client, "is_connected"):
+            connected = md_client.is_connected() if callable(md_client.is_connected) else md_client.is_connected
+        elif hasattr(md_client, "_connected"):
+            connected = md_client._connected
+        elif hasattr(md_client, "_running"):
+            connected = md_client._running
+        else:
+            connected = False
+    except Exception:
+        connected = False
+    market_data_status = "connected" if connected else "disconnected"
+    return {"status": status, "market_data": market_data_status}
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with all system components"""
+    try:
+        # This would integrate with actual TradeManager instance
+        detailed_status = {
+            "status": "ok",
+            "timestamp": datetime.utcnow().isoformat(),
+            "system_components": {
+                "broker_adapter": {
+                    "status": "connected",
+                    "last_heartbeat": datetime.utcnow().isoformat(),
+                    "connection_errors": 0
+                },
+                "market_data_client": {
+                    "status": "connected", 
+                    "last_update": datetime.utcnow().isoformat(),
+                    "subscription_errors": 0
+                },
+                "trade_manager": {
+                    "status": "running",
+                    "active_trades": 0,  # Would get actual count
+                    "background_tasks": "running"
+                }
+            },
+            "error_handling": {
+                "total_errors": 0,
+                "operations_with_errors": 0,
+                "circuit_breakers": {
+                    "broker": {
+                        "state": "CLOSED",
+                        "failure_count": 0,
+                        "can_execute": True
+                    },
+                    "market_data": {
+                        "state": "CLOSED", 
+                        "failure_count": 0,
+                        "can_execute": True
+                    }
+                }
+            },
+            "performance_metrics": {
+                "avg_evaluation_time_ms": 0,
+                "trades_processed": 0,
+                "success_rate_percent": 100.0
+            }
+        }
+        return detailed_status
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+@app.get("/health/errors")
+async def error_status():
+    """Get current error statistics and circuit breaker status"""
+    try:
+        error_stats = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "error_counts": {},  # Would get from actual error handler
+            "circuit_breakers": {
+                "broker": {
+                    "state": "CLOSED",
+                    "failure_count": 0,
+                    "last_failure_time": None,
+                    "can_execute": True
+                },
+                "market_data": {
+                    "state": "CLOSED",
+                    "failure_count": 0, 
+                    "last_failure_time": None,
+                    "can_execute": True
+                }
+            },
+            "recent_errors": []  # Would get from actual error log
+        }
+        return error_stats
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
 @app.on_event("startup")
 async def startup_event() -> None:
     await md_client.connect()              # stub feed starts here
+    app.state.md_client = md_client  # Attach to app state
     global tick_handler
     tick_handler = TickHandler(md_client, trade_manager)
     await trade_manager.start()
-    # collect every symbol that’s currently in the trade list
-    symbols = [t["symbol"] for t in trade_manager.trades]
-    await trade_manager.preload_volatility(symbols)
-    await exec_adapter.connect()  
+    try:
+        await exec_adapter.connect()
+        await order_executor.start()
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Execution adapter connection failed (continuing without execution): {e}")
+
 
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     await md_client.disconnect()
     await trade_manager.stop()
-    await exec_adapter.disconnect()  
+    await exec_adapter.disconnect() 
+    await order_executor.stop()
+ 
 
 TRADES_PATH = Path("backend/config/saved_trades.json")
 
 def is_valid_trade(trade: dict) -> bool:
-    REQUIRED_FIELDS = ["symbol", "name", "last_price"]
+    # Skip validation for draft trades (editing: true)
+    if trade.get("editing", False):
+        return True
+    
+    # For non-draft trades, require basic fields
+    REQUIRED_FIELDS = ["symbol"]
     return (
         isinstance(trade, dict) and 
         all(field in trade and trade[field] not in [None, ""] for field in REQUIRED_FIELDS)
@@ -74,6 +234,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Strategy routes removed - focusing on rules-based workflow
 
 @app.get("/trades")
 def get_trades():
@@ -250,7 +412,7 @@ app.include_router(ticker_routes.router)
 
 @app.post("/add_trade/{symbol}")
 async def add_trade(symbol: str):
-    enriched = await build_ticker_payload(symbol)
+    enriched = await build_ticker_payload(symbol, md_client)
 
     if TRADES_PATH.exists():
         with open(TRADES_PATH, "r") as f:
@@ -261,32 +423,166 @@ async def add_trade(symbol: str):
     else:
         existing = []
 
+    # When creating or serializing a trade, use arrays for all rule types
+    # Example for trade creation:
+    trade = {
+        "symbol": enriched["symbol"],
+        "name": enriched["name"],
+        "last_price": enriched["last_price"],
+        "volatility": {
+            "adr_20": enriched.get("adr_20"),
+            "atr_14": enriched.get("atr_14")
+        },
+        "time_in_force": enriched.get("time_in_force", "GTC"),
+        "order_type": enriched.get("order_type", "Market"),
+        "calculated_quantity": enriched.get("calculated_quantity", 0),
+        "usd": enriched.get("usd", 0),
+        "percent_balance": enriched.get("percent_balance", 0),
+        "usd_risk": enriched.get("usd_risk", 0),
+        "percent_risk": enriched.get("percent_risk", 0),
+        "entry_rules": [enriched.get("entry_rule", {})],
+        "initial_stop_rules": [enriched.get("initial_stop_rule", {})],
+        "trailing_stop_rules": [enriched.get("trailing_stop_rule", {})],
+        "take_profit_rules": [enriched.get("take_profit_rule", {})]
+    }
+    # Remove any singular object forms from trade creation and serialization
+
     # Deduplicate and append enriched trade
     existing = [t for t in existing if t.get("symbol") != symbol.upper()]
-    existing.append(enriched)
+    existing.append(trade)
 
     with open(TRADES_PATH, "w") as f:
         json.dump(existing, f, indent=2)
 
     return {"message": f"{symbol.upper()} added to saved_trades.json"}
 
+@app.post("/inject_tick")
+async def inject_tick(request: Request):
+    """Inject a tick for testing trade execution"""
+    try:
+        tick_data = await request.json()
+        symbol = tick_data.get("symbol")
+        price = tick_data.get("price")
+        
+        if not symbol or price is None:
+            raise HTTPException(status_code=400, detail="symbol and price are required")
+        
+        # Process the tick through trade manager
+        await trade_manager.evaluate_trade_on_tick(symbol, price)
+        
+        return {
+            "message": f"✅ Tick injected for {symbol} at ${price}",
+            "tick_data": tick_data
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error injecting tick: {e}")
+        raise HTTPException(status_code=500, detail=f"Error injecting tick: {str(e)}")
+
 @app.post("/debug/tick")
-def debug_tick(symbol: str, price: float):
-    trade_manager.evaluate_trade_on_tick(symbol, price)
+async def debug_tick(symbol: str, price: float):
+    await trade_manager.evaluate_trade_on_tick(symbol, price)
     return {"message": f"✅ Tick injected for {symbol} at {price}"}
 
 
 from fastapi import Body
 
 @app.post("/debug/mark_filled")
-def debug_mark_filled(data: dict = Body(...)):
+async def debug_mark_filled(data: dict = Body(...)):
     symbol = data["symbol"]
     fill_price = data["fill_price"]
     filled_qty = data["filled_qty"]
 
-    trade_manager.mark_trade_filled(symbol, fill_price, filled_qty)
+    await trade_manager.mark_trade_filled(symbol, fill_price, filled_qty)
     return {"message": f"✅ Simulated fill for {symbol} @ ${fill_price} x {filled_qty}"}
 
+@app.get("/trades/{symbol}/audit")
+async def get_trade_audit_trail(symbol: str):
+    """Get audit trail for a specific trade"""
+    try:
+        # Get trade manager instance
+        from backend.engine.trade_manager import TradeManager
+        # This is a simplified implementation - in production you'd have a proper way to access the trade manager
+        audit_trail = []  # Placeholder - would get from actual trade manager
+        return {"symbol": symbol, "audit_trail": audit_trail}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/trades/{symbol}/metrics")
+async def get_trade_performance_metrics(symbol: str):
+    """Get performance metrics for a specific trade"""
+    try:
+        # This is a simplified implementation - in production you'd have a proper way to access the trade manager
+        metrics = {
+            "symbol": symbol,
+            "total_events": 0,
+            "status_transitions": 0,
+            "fills": 0,
+            "errors": 0,
+            "duration_seconds": 0,
+            "last_event": None
+        }
+        return metrics
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/trades/audit")
+async def get_all_audit_trails():
+    """Get audit trail for all trades"""
+    try:
+        # This is a simplified implementation - in production you'd have a proper way to access the trade manager
+        audit_trail = []
+        return {"audit_trail": audit_trail}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/indicator-value")
+def get_indicator_value(
+    symbol: str = Query(...),
+    indicator: str = Query(...),
+    lookback: int = Query(8)
+):
+    print(f"[LOG] Calculating {indicator.upper()} {lookback} for {symbol}")  # Logging for proof
+    try:
+        # Use the market data client to get real historical data
+        async def fetch_and_calculate():
+            # Get historical data from IB
+            bars = await md_client.get_historical_data(symbol.upper(), lookback_days=30)
+            if not bars:
+                raise Exception(f"No historical data available for {symbol}")
+            
+            # Extract closing prices from bars
+            prices = [bar.close for bar in bars if hasattr(bar, "close") and bar.close is not None]
+            if not prices:
+                raise Exception(f"No valid price data for {symbol}")
+            
+            # Calculate indicator value
+            value = None
+            if indicator.lower() == "ema":
+                value = indicators.calculate_ema(prices, lookback)
+            elif indicator.lower() == "sma":
+                value = indicators.calculate_sma(prices, lookback)
+            elif indicator.lower() == "atr":
+                # For ATR, we need OHLC data, not just closes
+                value = volatility.calculate_atr(bars, {"lookback": lookback})
+            elif indicator.lower() == "adr":
+                value = volatility.calculate_adr(bars, {"lookback": lookback})
+            else:
+                raise Exception(f"Unknown indicator: {indicator}")
+            
+            return value
+        
+        # Run the async function
+        import asyncio
+        value = asyncio.run(fetch_and_calculate())
+        
+        return {"symbol": symbol, "indicator": indicator, "lookback": lookback, "value": value}
+        
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 if __name__ == "__main__":

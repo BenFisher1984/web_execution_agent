@@ -57,6 +57,36 @@ class StubMarketDataClient(MarketDataClient):
     async def snapshot(self, symbol: str) -> Tick:
         return _make_tick(symbol)
 
+    # ---------- historical data ----------
+    async def get_historical_data(self, symbol: str, lookback_days: int):
+        """Return fake historical data for testing"""
+        bars = []
+        for i in range(lookback_days):
+            bar = type('Bar', (), {
+                'open': random.uniform(90, 110),
+                'high': random.uniform(90, 110),
+                'low': random.uniform(90, 110),
+                'close': random.uniform(90, 110),
+                'volume': random.randint(1000, 10000),
+                'timestamp': i
+            })()
+            bars.append(bar)
+        return bars
+
+    # ---------- contract details ----------
+    async def get_contract_details(self, symbol: str):
+        """Return fake contract details for testing"""
+        return type('Contract', (), {
+            'symbol': symbol.upper(),
+            'exchange': 'NASDAQ',
+            'currency': 'USD'
+        })()
+
+    # ---------- last price ----------
+    async def get_last_price(self, symbol: str) -> float:
+        """Return fake last price for testing"""
+        return random.uniform(90, 110)
+
     # ---------- internals ----------
     async def _tick_pump(self) -> None:
         while self._running:

@@ -24,8 +24,20 @@ class OrderExecutor:
         self.adapter: BrokerAdapter = exec_adapter
         self.trade_manager = trade_manager
         self.active_orders: dict[str, dict] = {}  # broker_id → trade data
-        # background fill listener
-        asyncio.create_task(self._fill_listener())
+        self._task: asyncio.Task | None = None
+
+    async def start(self) -> None:
+        if not self._task:
+            self._task = asyncio.create_task(self._fill_listener())
+
+    async def stop(self) -> None:
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        
 
     # ------------------------------------------------------------------ #
     # public API
@@ -92,29 +104,44 @@ class OrderExecutor:
     async def _stream_fills(self) -> AsyncIterator[Fill]:
         try:
             async for fill in self.adapter.stream_fills():
+                if fill is None:
+                    logger.debug("Received None fill from adapter")
+                    continue
                 yield fill
+        except asyncio.CancelledError:
+            logger.debug("Fill stream cancelled during shutdown")
+            raise
         except Exception as e:
             logger.error(f"Fill stream stopped: {e}")
 
     async def _on_fill(self, fill: Fill) -> None:
-        broker_id = fill["broker_id"]
-        trade_data = self.active_orders.pop(broker_id, None)
-        if not trade_data:
-            logger.debug(f"Untracked fill {broker_id}")
+        # Handle None fill during shutdown
+        if fill is None:
+            logger.debug("Received None fill during shutdown")
             return
+            
+        try:
+            broker_id = fill["broker_id"]
+            trade_data = self.active_orders.pop(broker_id, None)
+            if not trade_data:
+                logger.debug(f"Untracked fill {broker_id}")
+                return
 
-        trade = trade_data.get("trade")
-        symbol = fill["symbol"]
+            trade = trade_data.get("trade")
+            symbol = fill["symbol"]
 
-        logger.info(
-            f"Fill received for {symbol}: {fill['qty']} @ {fill['price']:.2f}"
-        )
+            logger.info(
+                f"Fill received for {symbol}: {fill['qty']} @ {fill['price']:.2f}"
+            )
 
-        if not trade or not self.trade_manager:
-            logger.warning(f"No trade manager to update state for {symbol}")
+            if not trade or not self.trade_manager:
+                logger.warning(f"No trade manager to update state for {symbol}")
+                return
+
+            if trade.get("order_status") == OrderStatus.CONTINGENT_ORDER_SUBMITTED.value:
+                await self.trade_manager.mark_trade_closed(symbol, fill["price"], fill["qty"])
+            else:
+                await self.trade_manager.mark_trade_filled(symbol, fill["price"], fill["qty"])
+        except Exception as e:
+            logger.error(f"Error processing fill: {e}")
             return
-
-        if trade.get("order_status") == OrderStatus.CONTINGENT_ORDER_SUBMITTED.value:
-            await self.trade_manager.mark_trade_closed(symbol, fill["price"], fill["qty"])
-        else:
-            await self.trade_manager.mark_trade_filled(symbol, fill["price"], fill["qty"])

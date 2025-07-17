@@ -53,6 +53,32 @@ class MarketDataClient(ABC):
     @abstractmethod
     async def snapshot(self, symbol: str) -> Tick: ...
 
+    # ---------- historical data ----------
+    @abstractmethod
+    async def get_historical_data(self, symbol: str, lookback_days: int):
+        """
+        Fetch historical price data for a symbol.
+        Returns a list of bar objects with OHLCV data.
+        """
+        ...
+
+    # ---------- contract details ----------
+    @abstractmethod
+    async def get_contract_details(self, symbol: str):
+        """
+        Retrieve detailed information about a specific ticker symbol.
+        Returns details needed for placing an order.
+        """
+        ...
+
+    # ---------- last price ----------
+    @abstractmethod
+    async def get_last_price(self, symbol: str) -> float:
+        """
+        Get latest market price for a symbol.
+        """
+        ...
+
 
 class TickCallback(Protocol):
     def __call__(self, tick: Tick) -> None: ...

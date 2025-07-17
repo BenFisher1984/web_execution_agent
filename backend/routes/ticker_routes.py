@@ -34,50 +34,55 @@ def get_enabled_volatility_lookbacks():
         logger.warning(f"⚠️ Failed to parse layout_config.json: {e}")
     return lookbacks
 
-async def build_ticker_payload(symbol: str) -> dict:
-    md_client = get_market_data_client(settings_get("market_data_provider"))
+async def build_ticker_payload(symbol: str, md_client) -> dict:
+    # md_client is now passed in from the route
+    try:
+        contract = await md_client.get_contract_details(symbol)
+        if not contract:
+            raise HTTPException(status_code=404, detail="Symbol not found")
 
-    contract = await md_client.get_contract_details(symbol)
-    if not contract:
-        raise HTTPException(status_code=404, detail="Symbol not found")
+        # using the contract, get extra details if needed
+        long_name = getattr(contract, "symbol", symbol.upper())
 
-    # using the contract, get extra details if needed
-    long_name = getattr(contract, "symbol", symbol.upper())
+        last = await md_client.get_last_price(symbol)
+        if last is None or last == 0:
+            raise HTTPException(status_code=400, detail="No market data available")
 
-    last = await md_client.get_last_price(symbol)
-    if last is None:
-        raise HTTPException(status_code=400, detail="No market data available")
+        # Get historical data for volatility calculations only (not for storage)
+        bars = await md_client.get_historical_data(symbol, lookback_days=30)
+        if not bars:
+            raise HTTPException(status_code=400, detail="No historical data available")
 
-    bars = await md_client.get_historical_data(symbol, lookback_days=30)
-    if not bars:
-        raise HTTPException(status_code=400, detail="No historical data available")
+        volatility_fields = get_enabled_volatility_lookbacks()
+        flat_volatility = {}
 
-    historical_closes = [bar.close for bar in bars if getattr(bar, "close", None) is not None]
+        for flat_key, (vol_type, lookback) in volatility_fields.items():
+            if vol_type == "adr":
+                val = calculate_adr(bars, options={"lookback": lookback})
+            elif vol_type == "atr":
+                val = calculate_atr(bars, options={"lookback": lookback})
+            else:
+                val = None
+            flat_volatility[flat_key] = float(val) if val is not None else None
 
-    volatility_fields = get_enabled_volatility_lookbacks()
-    flat_volatility = {}
-
-    for flat_key, (vol_type, lookback) in volatility_fields.items():
-        if vol_type == "adr":
-            val = calculate_adr(bars, options={"lookback": lookback})
-        elif vol_type == "atr":
-            val = calculate_atr(bars, options={"lookback": lookback})
-        else:
-            val = None
-        flat_volatility[flat_key] = float(val) if val is not None else None
-
-    return {
-        "symbol": symbol.upper(),
-        "name": long_name,
-        "last_price": last,
-        **flat_volatility,
-        "historical_closes": historical_closes
-    }
+        return {
+            "symbol": symbol.upper(),
+            "name": long_name,
+            "last_price": last,
+            **flat_volatility
+            # Removed historical_closes - no longer storing historical data in JSON
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error building ticker payload for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/ticker/{symbol}")
-async def get_ticker_info(symbol: str):
+async def get_ticker_info(symbol: str, request: Request):
     try:
-        payload = await build_ticker_payload(symbol)
+        md_client = request.app.state.md_client
+        payload = await build_ticker_payload(symbol, md_client)
         logger.info(f"✅ /ticker response: {payload}")
         return payload
     except Exception as e:
