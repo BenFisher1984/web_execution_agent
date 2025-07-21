@@ -15,6 +15,7 @@ from .stop_loss_evaluator import StopLossEvaluator
 from .take_profit_evaluator import TakeProfitEvaluator
 from .trailing_stop_evaluator import TrailingStopEvaluator
 from .portfolio_evaluator import PortfolioEvaluator
+from .indicators import build_preloaded_rolling_window
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -298,7 +299,6 @@ class TradeManager:
         self.order_executor = order_executor
         self.config_path = config_path
         self.trades = self.load_trades()
-        self.trade_index = {trade["symbol"]: trade for trade in self.trades if trade.get("symbol")}
         self.save_pending = False
         self.save_delay = 1.0
         self.volatility_cache: dict[str, dict] = {}
@@ -367,22 +367,14 @@ class TradeManager:
 
     async def start(self):
         """Start background tasks"""
-        if self._debounce_task is None:
-            self._debounce_task = asyncio.create_task(self.debounce_save())
+        # Removed debounce_save task - now using immediate saves
         if self._sync_task is None:
             self._sync_task = asyncio.create_task(self.sync_with_broker())
         logger.info("TradeManager background tasks started")
 
     async def stop(self):
         """Stop background tasks"""
-        if self._debounce_task:
-            self._debounce_task.cancel()
-            try:
-                await self._debounce_task
-            except asyncio.CancelledError:
-                pass
-            self._debounce_task = None
-
+        # Removed debounce_save task - now using immediate saves
         if self._sync_task:
             self._sync_task.cancel()
             try:
@@ -394,20 +386,91 @@ class TradeManager:
         logger.info("TradeManager background tasks stopped")
 
     def load_trades(self):
-        """Load trades from JSON file"""
+        """Load trades from JSON file and apply validation/cleanup"""
         for attempt in range(3):
             try:
                 if not os.path.exists(self.config_path):
                     logger.warning(f"No trade file found at {self.config_path}")
                     return []
+                
                 with open(self.config_path, "r") as f:
-                    return json.load(f)
+                    trades = json.load(f)
+                
+                # TradeManager ignores editing field entirely - only cares about order/trade status
+                logger.info(f"TradeManager: Loaded {len(trades)} trades, ignoring editing field for evaluation")
+                
+                return trades
+                
             except Exception as e:
                 logger.error(f"Failed to load trades (attempt {attempt + 1}): {e}")
                 if attempt < 2:
                     time.sleep(1)
         logger.error("Max retries reached for loading trades")
         return []
+    
+    def _get_fresh_trade_config(self, symbol: str) -> Optional[dict]:
+        """
+        Get fresh trade configuration for a symbol directly from saved_trades.json.
+        This ensures we always have the latest trade status and configuration.
+        """
+        try:
+            if not os.path.exists(self.config_path):
+                logger.warning(f"No trade file found at {self.config_path}")
+                return None
+            
+            with open(self.config_path, "r") as f:
+                trades = json.load(f)
+            
+            # Find trade for the specific symbol
+            for trade in trades:
+                if trade.get("symbol") == symbol:
+                    return trade
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to read fresh trade config for {symbol}: {e}")
+            return None
+    
+    def _update_trade_in_file(self, symbol: str, updated_trade: dict):
+        """
+        Update a specific trade in saved_trades.json file.
+        This replaces the old trade with the updated one.
+        """
+        try:
+            if not os.path.exists(self.config_path):
+                logger.warning(f"No trade file found at {self.config_path}")
+                return False
+            
+            with open(self.config_path, "r") as f:
+                trades = json.load(f)
+            
+            # Find and update the trade
+            for i, trade in enumerate(trades):
+                if trade.get("symbol") == symbol:
+                    trades[i] = updated_trade
+                    break
+            else:
+                logger.warning(f"Trade not found for symbol {symbol}")
+                return False
+            
+            # Write back to file atomically
+            with open(self.config_path + ".tmp", "w") as f:
+                json.dump(trades, f, indent=2)
+            os.replace(self.config_path + ".tmp", self.config_path)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to update trade for {symbol}: {e}")
+            return False
+    
+    def _get_trade_by_symbol(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Find trade by symbol in the main trades list"""
+        for trade in self.trades:
+            if trade.get("symbol") == symbol:
+                return trade
+        return None
 
     async def debounce_save(self):
         """Background task to save trades with debouncing"""
@@ -419,22 +482,25 @@ class TradeManager:
 
     def _save_trades(self):
         """Save trades to JSON file"""
+        logger.info(f"DEBUG: _save_trades() called - trades count: {len(self.trades)}")
         serializable_trades = []
-        for trade in self.trades:
+        for i, trade in enumerate(self.trades):
+            logger.info(f"DEBUG: Trade {i} - symbol: {trade.get('symbol')}, status: {trade.get('order_status')}")
             trade_copy = dict(trade)
             trade_copy.pop("contract", None)
             serializable_trades.append(trade_copy)
         try:
+            logger.info(f"DEBUG: Writing to file: {self.config_path}")
             with open(self.config_path + ".tmp", "w") as f:
                 json.dump(serializable_trades, f, indent=2)
             os.replace(self.config_path + ".tmp", self.config_path)
-            logger.debug("Trades saved to disk")
+            logger.info("DEBUG: Trades saved to disk successfully")
         except Exception as e:
             logger.error(f"Failed to save trades: {e}")
 
     def save_trades(self):
-        """Mark trades for saving"""
-        self.save_pending = True
+        """Immediately save trades to JSON file"""
+        self._save_trades()
 
     async def sync_with_broker(self):
         """Sync trade positions with broker using error handling"""
@@ -458,7 +524,7 @@ class TradeManager:
                         symbol = pos.contract.symbol if hasattr(pos, 'contract') and hasattr(pos.contract, 'symbol') else None
                         
                         if symbol:
-                            trade = self.trade_index.get(symbol)
+                            trade = self._get_fresh_trade_config(symbol)
                             if trade and trade.get("trade_status") in ["live", TradeStatus.LIVE.value]:
                                 # Extract position data from IB Position object
                                 filled_qty = pos.position if hasattr(pos, 'position') else 0
@@ -581,10 +647,27 @@ class TradeManager:
     async def evaluate_trade_on_tick(self, symbol: str, price: float, rolling_window=None):
         """
         Evaluate trade on incoming tick with comprehensive error handling.
+        Always reads fresh trade config from saved_trades.json.
         """
         try:
-            trade = self.trade_index.get(symbol)
+            logger.info(f"DEBUG: evaluate_trade_on_tick called for {symbol} at ${price}")
+            
+            # Read fresh trade config from file - no caching
+            trade = self._get_fresh_trade_config(symbol)
             if not trade:
+                logger.info(f"DEBUG: No trade found for {symbol}")
+                return
+            
+            logger.info(f"DEBUG: Found trade for {symbol} - status: {trade.get('order_status')} / {trade.get('trade_status')}")
+            
+            # Guard: Don't process trades in terminal states
+            trade_status = trade.get("trade_status")
+            order_status = trade.get("order_status")
+            terminal_order_states = {"Cancelled", "Rejected", "Inactive"}
+            terminal_trade_states = {"Closed", "Cancelled"}
+            
+            if trade_status in terminal_trade_states or order_status in terminal_order_states:
+                logger.info(f"DEBUG: Skipping {symbol} - trade in terminal state (trade: {trade_status}, order: {order_status})")
                 return
             
             # Check circuit breaker before proceeding
@@ -592,20 +675,51 @@ class TradeManager:
                 logger.warning(f"🚨 Broker circuit breaker OPEN for {symbol} - skipping evaluation")
                 return
             
+            # Fetch historical data and create populated rolling window
+            populated_rolling_window = None
+            if self.md_client:
+                try:
+                    logger.info(f"DEBUG: Fetching historical data for {symbol}")
+                    historical_data = await self.md_client.get_historical_data(symbol, 30)
+                    if historical_data and len(historical_data) >= 21:
+                        # Extract close prices (handle both dict and Bar object formats)
+                        close_prices = []
+                        for bar in historical_data:
+                            if hasattr(bar, 'close'):
+                                close_prices.append(bar.close)  # IB Bar object
+                            elif isinstance(bar, dict) and 'close' in bar:
+                                close_prices.append(bar['close'])  # Dict format
+                            else:
+                                logger.warning(f"Unknown bar format: {type(bar)}")
+                        # Create populated rolling window
+                        populated_rolling_window = build_preloaded_rolling_window(close_prices, 30)
+                        # Add current tick to rolling window
+                        populated_rolling_window.append(price)
+                        logger.info(f"DEBUG: Created rolling window with {len(populated_rolling_window)} data points")
+                    else:
+                        logger.warning(f"⚠️ Insufficient historical data for {symbol}: got {len(historical_data) if historical_data else 0} bars")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to fetch historical data for {symbol}: {e}")
+            else:
+                logger.warning(f"⚠️ No market data client available for {symbol}")
+            
+            logger.info(f"DEBUG: Circuit breaker OK, calling _evaluate_trade_internal")
+            
             # Use error handler for evaluation
             await self.error_handler.execute_with_retry(
                 f"evaluate_trade_{symbol}",
                 self._evaluate_trade_internal,
-                trade, price, rolling_window
+                trade, price, populated_rolling_window
             )
             
         except Exception as e:
             logger.error(f"❌ Critical error in evaluate_trade_on_tick for {symbol}: {e}")
             self.broker_circuit_breaker.record_failure()
             # Log the error event
-            if symbol in self.trade_index:
+            trade = self._get_trade_by_symbol(symbol)
+            if trade:
                 self.lifecycle_logger.log_trade_event(
-                    self.trade_index[symbol].get("trade_id", "unknown"),
+                    trade.get("trade_id", "unknown"),
                     symbol,
                     "critical_error",
                     {"error": str(e), "price": price}
@@ -614,21 +728,39 @@ class TradeManager:
     async def _evaluate_trade_internal(self, trade: dict, price: float, rolling_window=None):
         """Internal trade evaluation with error handling"""
         try:
+            logger.info(f"DEBUG: _evaluate_trade_internal called for {trade.get('symbol')}")
+            
             # Evaluate entry conditions
             await self._evaluate_entry_conditions(trade, price, rolling_window)
             
             # Evaluate child orders if trade is live
             if trade.get("trade_status") == TradeStatus.FILLED.value:
-                await self._evaluate_child_orders(trade, price, rolling_window)
+                logger.info(f"DEBUG: Trade is FILLED, evaluating child orders")
+                logger.info(f"DEBUG: About to call _evaluate_child_orders")
+                try:
+                    await self._evaluate_child_orders(trade, price, rolling_window)
+                    logger.info(f"DEBUG: Child order evaluation completed")
+                except Exception as child_error:
+                    logger.error(f"❌ Error in child order evaluation: {child_error}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                logger.info(f"DEBUG: Finished child order evaluation block")
+            else:
+                logger.info(f"DEBUG: Trade status is {trade.get('trade_status')}, not evaluating child orders")
                 
         except Exception as e:
             logger.error(f"❌ Error in _evaluate_trade_internal: {e}")
             raise
 
-    async def _evaluate_entry_conditions(self, trade: dict, price: float, rolling_window=None):
+    async def _evaluate_entry_conditions(self, trade: dict, price: float, rolling_window):
         """
         Evaluate entry conditions for parent order.
         """
+        # Skip entry evaluation if trade is already filled
+        if trade.get("trade_status") == TradeStatus.FILLED.value:
+            logger.info(f"DEBUG: Skipping entry evaluation for {trade.get('symbol')} - trade already filled")
+            return
+            
         # Check portfolio filters first
         portfolio_data = self._get_portfolio_data(trade)
         if self.portfolio_evaluator.is_portfolio_filter_active(trade):
@@ -641,22 +773,41 @@ class TradeManager:
         if self.entry_evaluator.should_trigger_entry(trade, price, rolling_window):
             logger.info(f"Entry conditions met for {trade.get('symbol')} at price {price:.2f}")
             
-            # Log status transition
+            # DEBUG: Log trade object before update
+            logger.info(f"DEBUG: Before update - trade status: {trade.get('order_status')}")
+            logger.info(f"DEBUG: Trade object ID: {id(trade)}")
+            
+            # Update status
             old_status = trade.get("order_status", OrderStatus.WORKING.value)
-            trade["order_status"] = OrderStatus.ENTRY_ORDER_SUBMITTED.value
+            new_status = OrderStatus.ENTRY_ORDER_SUBMITTED.value
+            trade["order_status"] = new_status
+
             self._log_status_transition(
                 trade=trade,
                 from_status=old_status,
-                to_status=OrderStatus.ENTRY_ORDER_SUBMITTED.value,
+                to_status=new_status,
                 trigger="entry_conditions_met",
                 context={"price": price, "rolling_window_size": len(rolling_window.get_window()) if rolling_window else 0}
             )
+
+            # Persist to disk
+            logger.info("DEBUG: About to persist status change to disk")
+            self._update_trade_in_file(trade.get("symbol"), trade)
+
+            # ⚠️ Ensure in-memory copy is also updated
+            for i, t in enumerate(self.trades):
+                if t.get("symbol") == trade["symbol"]:
+                    self.trades[i] = trade
+                    break
+
+            logger.info("DEBUG: Status change persisted to disk and memory successfully")
+
             
             # Place parent order
             if self.order_executor:
                 order_result = await self.order_executor.place_market_order(
                     symbol=trade.get("symbol"),
-                    qty=trade.get("quantity", 0),
+                    qty=trade.get("calculated_quantity", 0),
                     side="BUY" if trade.get("direction", "Long") == "Long" else "SELL",
                     trade=trade
                 )
@@ -678,24 +829,36 @@ class TradeManager:
 
             self.save_trades()
 
-    async def _evaluate_child_orders(self, trade: dict, price: float, rolling_window=None):
+    async def _evaluate_child_orders(self, trade: dict, price: float, rolling_window):
         """
         Evaluate child orders (stops, targets, trailing stops).
         """
+        logger.info(f"DEBUG: Evaluating child orders for {trade.get('symbol')} at ${price}")
+        
         # 1. Evaluate stop loss
         if self.stop_loss_evaluator.is_stop_active(trade):
+            logger.info(f"DEBUG: Stop loss is active, checking trigger")
             stop_triggered, stop_details = self.stop_loss_evaluator.should_trigger_stop(trade, price, rolling_window)
             if stop_triggered:
+                logger.info(f"DEBUG: Stop loss triggered: {stop_details}")
                 await self._execute_stop_loss(trade, stop_details)
+        else:
+            logger.info(f"DEBUG: Stop loss not active")
 
         # 2. Evaluate take profit
         if self.take_profit_evaluator.is_take_profit_active(trade):
+            logger.info(f"DEBUG: Take profit is active, checking trigger at ${price}")
             tp_triggered, tp_details = self.take_profit_evaluator.should_trigger_take_profit(trade, price)
+            logger.info(f"DEBUG: Take profit triggered: {tp_triggered}, details: {tp_details}")
             if tp_triggered:
+                logger.info(f"DEBUG: Executing take profit: {tp_details}")
                 await self._execute_take_profit(trade, tp_details)
+        else:
+            logger.info(f"DEBUG: Take profit not active")
 
         # 3. Evaluate trailing stop updates
         if self.trailing_stop_evaluator.is_trailing_stop_active(trade):
+            logger.info(f"DEBUG: Trailing stop is active, checking updates")
             should_update, trailing_details = self.trailing_stop_evaluator.should_update_trailing_stop(
                 trade, price, rolling_window
             )
@@ -712,33 +875,37 @@ class TradeManager:
         logger.info(f"Executing stop loss for {trade.get('symbol')}")
         
         if self.order_executor:
+            logger.info(f"Order executor available, attempting to place exit order")
             order_result = await self.order_executor.submit_exit_order(
                 symbol=trade.get("symbol"),
-                qty=trade.get("filled_qty", trade.get("quantity", 0)),
+                qty=trade.get("filled_qty", trade.get("calculated_quantity", 0)),
                 side="SELL" if trade.get("direction", "Long") == "Long" else "BUY",
                 trade=trade
             )
             
+            logger.info(f"Exit order result: {order_result}")
+            
             if order_result:
                 trade["order_status"] = OrderStatus.CONTINGENT_ORDER_SUBMITTED.value
                 logger.info(f"Stop loss order placed: {order_result}")
+                self.save_trades()  # Save after status change
             else:
-                logger.error(f"Failed to place stop loss order for {trade.get('symbol')}")
+                logger.error(f"Failed to place stop loss order for {trade.get('symbol')} - order_result was None")
+        else:
+            logger.error("No order executor available for stop loss")
 
     async def _execute_take_profit(self, trade: dict, tp_details: Dict[str, Any]):
         """Execute take profit order"""
         logger.info(f"Executing take profit for {trade.get('symbol')}")
         
-        # Get the highest priority target
-        triggered_targets = tp_details.get("triggered_targets", [])
-        if not triggered_targets:
+        # Use the filled quantity for exit (simple approach)
+        exit_quantity = trade.get("filled_qty", trade.get("calculated_quantity", 0))
+        
+        if exit_quantity <= 0:
+            logger.warning(f"Invalid exit quantity for take profit: {exit_quantity}")
             return
         
-        # Sort by priority (primary first)
-        triggered_targets.sort(key=lambda x: x.get("level", "secondary"))
-        target = triggered_targets[0]
-        
-        exit_quantity = self.take_profit_evaluator.calculate_exit_quantity(trade, target)
+        logger.info(f"DEBUG: Placing take profit exit order for {exit_quantity} shares")
         
         if self.order_executor:
             order_result = await self.order_executor.submit_exit_order(
@@ -751,8 +918,11 @@ class TradeManager:
             if order_result:
                 trade["order_status"] = OrderStatus.CONTINGENT_ORDER_SUBMITTED.value
                 logger.info(f"Take profit order placed: {order_result}")
+                self.save_trades()  # Save after status change
             else:
                 logger.error(f"Failed to place take profit order for {trade.get('symbol')}")
+        else:
+            logger.warning("No order executor available for take profit")
 
     async def _execute_trailing_stop(self, trade: dict, trailing_details: Dict[str, Any]):
         """Execute trailing stop order"""
@@ -761,7 +931,7 @@ class TradeManager:
         if self.order_executor:
             order_result = await self.order_executor.submit_exit_order(
                 symbol=trade.get("symbol"),
-                qty=trade.get("filled_qty", trade.get("quantity", 0)),
+                qty=trade.get("filled_qty", trade.get("calculated_quantity", 0)),
                 side="SELL" if trade.get("direction", "Long") == "Long" else "BUY",
                 trade=trade
             )
@@ -769,6 +939,7 @@ class TradeManager:
             if order_result:
                 trade["order_status"] = OrderStatus.CONTINGENT_ORDER_SUBMITTED.value
                 logger.info(f"Trailing stop order placed: {order_result}")
+                self.save_trades()  # Save after status change
             else:
                 logger.error(f"Failed to place trailing stop order for {trade.get('symbol')}")
 
@@ -786,20 +957,24 @@ class TradeManager:
 
     async def mark_trade_filled(self, symbol: str, fill_price: float, filled_qty: int):
         """Mark trade as filled and initialize child orders"""
-        trade = self.trade_index.get(symbol)
+        trade = self._get_fresh_trade_config(symbol)
         if not trade:
             logger.warning(f"No trade found for symbol {symbol}")
             return
 
-        # Log status transitions
-        old_order_status = trade.get("order_status", OrderStatus.ENTRY_ORDER_SUBMITTED.value)
-        old_trade_status = trade.get("trade_status", TradeStatus.PENDING.value)
+        # Log status transitions - use actual current status from fresh trade data
+        old_order_status = trade.get("order_status")
+        old_trade_status = trade.get("trade_status")
         
         # Update trade with fill information
         trade["filled_qty"] = filled_qty
         trade["executed_price"] = fill_price
-        trade["order_status"] = OrderStatus.CONTINGENT_ORDER_WORKING.value
-        trade["trade_status"] = TradeStatus.FILLED.value
+        
+        # Update status
+        new_order_status = OrderStatus.CONTINGENT_ORDER_WORKING.value
+        new_trade_status = TradeStatus.FILLED.value
+        trade["order_status"] = new_order_status
+        trade["trade_status"] = new_trade_status
 
         # Log order status transition
         self._log_status_transition(
@@ -819,19 +994,18 @@ class TradeManager:
             context={"fill_price": fill_price, "filled_qty": filled_qty}
         )
 
-        # Initialize trailing stop if configured
-        if self.trailing_stop_evaluator.is_trailing_stop_active(trade):
-            # Get rolling window for initialization - create empty one if none available
-            from .indicators import RollingWindow
-            rolling_window = RollingWindow(20)  # Default size
-            self.trailing_stop_evaluator.initialize_trailing_stop(trade, rolling_window)
+        # Trailing stop initialization is now handled in evaluate_trade_on_tick with populated rolling window
+        logger.info(f"✅ Trailing stop will be initialized on next tick evaluation for {trade.get('symbol')}")
+
 
         logger.info(f"Trade filled for {symbol}: {filled_qty} @ {fill_price:.2f}")
-        self.save_trades()
+        
+        # Save updated trade back to file
+        self._update_trade_in_file(symbol, trade)
 
     async def mark_trade_closed(self, symbol: str, exit_price: float, exit_qty: int):
         """Mark trade as closed"""
-        trade = self.trade_index.get(symbol)
+        trade = self._get_fresh_trade_config(symbol)
         if not trade:
             logger.warning(f"No trade found for symbol {symbol}")
             return
@@ -841,8 +1015,10 @@ class TradeManager:
         old_trade_status = trade.get("trade_status", TradeStatus.FILLED.value)
         
         # Update trade status
-        trade["order_status"] = OrderStatus.INACTIVE.value
-        trade["trade_status"] = TradeStatus.CLOSED.value
+        new_order_status = OrderStatus.INACTIVE.value
+        new_trade_status = TradeStatus.CLOSED.value
+        trade["order_status"] = new_order_status
+        trade["trade_status"] = new_trade_status
         trade["exit_price"] = exit_price
         trade["exit_qty"] = exit_qty
 
@@ -875,11 +1051,13 @@ class TradeManager:
         )
 
         logger.info(f"Trade closed for {symbol}: {exit_qty} @ {exit_price:.2f}, P&L: {pnl:.2f}")
-        self.save_trades()
+        
+        # Save updated trade back to file
+        self._update_trade_in_file(symbol, trade)
 
     def get_trade_details(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Get detailed trade information"""
-        trade = self.trade_index.get(symbol)
+        trade = self._get_fresh_trade_config(symbol)
         if not trade:
             return None
 

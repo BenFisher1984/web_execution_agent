@@ -4,15 +4,15 @@ const TakeProfitRulesPanel = ({ takeProfitRules = [], onChange }) => {
   const rule = takeProfitRules[0] || {};
   const isCustom = rule.secondary_source === "Custom";
   return (
-    <div className="border border-gray-300 rounded p-4 w-[220px]">
-      <h2 className="text-md font-semibold mb-2 text-gray-700">Take Profit Rules</h2>
+    <div className="bg-dark-panel border border-gray-700 rounded p-4 w-[220px] shadow-lg">
+      <h2 className="text-md font-bold mb-2 text-white">Take Profit Rules</h2>
       <div className="flex flex-col gap-1 text-sm">
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Primary Source</span>
+          <span className="text-gray-300">Primary Source</span>
           <select
             value={rule.primary_source ?? ""}
             onChange={e => onChange && onChange("take_profit_rules.0.primary_source", e.target.value)}
-            className="border px-2 py-1 rounded w-20 text-right bg-white"
+            className="bg-dark-input border border-gray-600 px-2 py-1 rounded w-20 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">--</option>
             <option value="Price">Price</option>
@@ -26,11 +26,11 @@ const TakeProfitRulesPanel = ({ takeProfitRules = [], onChange }) => {
           </select>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Condition</span>
+          <span className="text-gray-300">Condition</span>
           <select
             value={rule.condition ?? ""}
             onChange={e => onChange && onChange("take_profit_rules.0.condition", e.target.value)}
-            className="border px-2 py-1 rounded w-20 text-right bg-white"
+            className="bg-dark-input border border-gray-600 px-2 py-1 rounded w-20 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">--</option>
             <option value=">=">&gt;=</option>
@@ -40,11 +40,11 @@ const TakeProfitRulesPanel = ({ takeProfitRules = [], onChange }) => {
           </select>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Secondary Source</span>
+          <span className="text-gray-300">Secondary Source</span>
           <select
             value={rule.secondary_source ?? ""}
             onChange={e => onChange && onChange("take_profit_rules.0.secondary_source", e.target.value)}
-            className="border px-2 py-1 rounded w-20 text-right bg-white"
+            className="bg-dark-input border border-gray-600 px-2 py-1 rounded w-20 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">--</option>
             <option value="Price">Price</option>
@@ -58,18 +58,18 @@ const TakeProfitRulesPanel = ({ takeProfitRules = [], onChange }) => {
           </select>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Value</span>
+          <span className="text-gray-300">Value</span>
           {isCustom ? (
             <input
               type="number"
-              className="border px-2 py-1 rounded w-20 text-right bg-white"
+              className="bg-dark-input border border-gray-600 px-2 py-1 rounded w-20 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={rule.value ?? ""}
               onChange={e => onChange && onChange("take_profit_rules.0.value", e.target.value)}
             />
           ) : (
             <input
               type="number"
-              className="border px-2 py-1 rounded w-20 text-right bg-gray-100 cursor-not-allowed"
+              className="bg-gray-700 border border-gray-600 px-2 py-1 rounded w-20 text-right text-gray-400 cursor-not-allowed"
               value={rule.value ?? ""}
               disabled
             />

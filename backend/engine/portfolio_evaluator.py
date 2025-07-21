@@ -128,7 +128,7 @@ class PortfolioEvaluator:
             Tuple[bool, dict]: (passed, position_details)
         """
         symbol = trade.get("symbol")
-        trade_quantity = trade.get("quantity", 0)
+        trade_quantity = trade.get("calculated_quantity", 0)
         
         # Check maximum position size per symbol
         max_position_size = portfolio_data.get("max_position_size", float('inf'))
@@ -176,7 +176,7 @@ class PortfolioEvaluator:
         Returns:
             float: Required buying power
         """
-        quantity = trade.get("quantity", 0)
+        quantity = trade.get("calculated_quantity", 0)
         current_price = portfolio_data.get("current_price", 0)
         
         # Basic calculation: quantity * price
@@ -199,7 +199,7 @@ class PortfolioEvaluator:
         Returns:
             float: Potential loss
         """
-        quantity = trade.get("quantity", 0)
+        quantity = trade.get("calculated_quantity", 0)
         current_price = portfolio_data.get("current_price", 0)
         stop_price = trade.get("initial_stop_price")
         

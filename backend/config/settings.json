@@ -1,6 +1,6 @@
 {
-  "execution_adapter": "ib",
-  "market_data_provider": "ib",
+  "execution_adapter": "stub",
+  "market_data_provider": "stub",
   "polygon_api_key": "3_DFmeev20Rcci6NG9WZs5akfo6E7baR",
   "reset_time": "18:00",
   "timezone": "Australia/Sydney"

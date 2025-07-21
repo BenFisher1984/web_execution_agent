@@ -4,14 +4,14 @@ const PortfolioPanel = ({ portfolio, updatePortfolio, liveRisk, livePnl, buyingP
   const netRisk = portfolio.use_pnl_offset === "Yes" ? liveRisk + livePnl : liveRisk;
 
   return (
-    <div className="mb-6 border border-gray-300 rounded p-4 w-[320px]">
-      <h2 className="text-md font-semibold mb-2 text-gray-700">Portfolio</h2>
+    <div className="mb-6 bg-dark-panel border border-gray-700 rounded p-4 w-[320px] shadow-lg">
+      <h2 className="text-md font-bold mb-2 text-white">Portfolio</h2>
       <div className="flex flex-col gap-1">
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700">PortfolioValue</span>
+          <span className="text-gray-300">PortfolioValue</span>
           <input
             type="text"
-            className="border px-2 py-1 rounded w-28 text-right"
+            className="bg-dark-input border border-gray-600 px-2 py-1 rounded w-28 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: "USD",
@@ -25,27 +25,27 @@ const PortfolioPanel = ({ portfolio, updatePortfolio, liveRisk, livePnl, buyingP
           />
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700">LiveRisk</span>
+          <span className="text-gray-300">LiveRisk</span>
           <input
             type="text"
-            className={`border px-2 py-1 rounded w-28 text-right bg-gray-100 cursor-not-allowed font-semibold ${liveRisk > 0 ? "text-red-600" : "text-gray-600"}`}
+            className={`bg-gray-700 border border-gray-600 px-2 py-1 rounded w-28 text-right cursor-not-allowed font-semibold ${liveRisk > 0 ? "text-red-400" : "text-gray-400"}`}
             value={new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(liveRisk)}
             disabled
           />
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700">LivePNL</span>
+          <span className="text-gray-300">LivePNL</span>
           <input
             type="text"
-            className={`border px-2 py-1 rounded w-28 text-right bg-gray-100 cursor-not-allowed font-semibold ${livePnl >= 0 ? "text-green-600" : "text-red-600"}`}
+            className={`bg-gray-700 border border-gray-600 px-2 py-1 rounded w-28 text-right cursor-not-allowed font-semibold ${livePnl >= 0 ? "text-green-400" : "text-red-400"}`}
             value={`${livePnl >= 0 ? "+" : "-"}${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(livePnl))}`}
             disabled
           />
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700">UsePNLOffset</span>
+          <span className="text-gray-300">UsePNLOffset</span>
           <select
-            className="border px-2 py-1 rounded w-28 text-right"
+            className="bg-dark-input border border-gray-600 px-2 py-1 rounded w-28 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={portfolio.use_pnl_offset}
             onChange={(e) => updatePortfolio("use_pnl_offset", e.target.value)}
           >
@@ -54,19 +54,19 @@ const PortfolioPanel = ({ portfolio, updatePortfolio, liveRisk, livePnl, buyingP
           </select>
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700">NetRisk</span>
+          <span className="text-gray-300">NetRisk</span>
           <input
             type="text"
-            className="border px-2 py-1 rounded w-28 text-right bg-gray-100 cursor-not-allowed font-semibold text-gray-600"
+            className="bg-gray-700 border border-gray-600 px-2 py-1 rounded w-28 text-right cursor-not-allowed font-semibold text-gray-400"
             value={new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(netRisk)}
             disabled
           />
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700">MaxRisk</span>
+          <span className="text-gray-300">MaxRisk</span>
           <input
             type="text"
-            className={`border px-2 py-1 rounded w-28 text-right ${portfolio.max_risk > 0 ? "text-red-600 font-semibold" : "text-gray-600"}`}
+            className={`bg-dark-input border border-gray-600 px-2 py-1 rounded w-28 text-right focus:outline-none focus:ring-2 focus:ring-blue-500 ${portfolio.max_risk > 0 ? "text-red-400 font-semibold" : "text-gray-400"}`}
             value={new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: "USD",
@@ -80,10 +80,10 @@ const PortfolioPanel = ({ portfolio, updatePortfolio, liveRisk, livePnl, buyingP
           />
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700">BuyingPower</span>
+          <span className="text-gray-300">BuyingPower</span>
           <input
             type="text"
-            className="border px-2 py-1 rounded w-28 text-right bg-gray-100 cursor-not-allowed font-semibold text-gray-600"
+            className="bg-gray-700 border border-gray-600 px-2 py-1 rounded w-28 text-right cursor-not-allowed font-semibold text-gray-400"
             value={new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(buyingPower)}
             disabled
           />

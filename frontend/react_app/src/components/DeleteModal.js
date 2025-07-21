@@ -16,21 +16,22 @@ const DeleteModal = ({ trades, tradeToDelete, setTradeToDelete, setShowDeleteMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-lg w-[90%] max-w-md p-6">
-        <h2 className="text-lg font-semibold mb-4 text-gray-800">Delete Trade</h2>
-        <p className="text-sm text-gray-700 mb-2">Select a trade to delete:</p>
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center">
+      <div className="bg-dark-panel border border-gray-600 rounded-lg shadow-2xl w-[90%] max-w-md p-6">
+        <h2 className="text-lg font-bold mb-4 text-white">Delete Trade</h2>
+        <p className="text-sm text-gray-300 mb-2">Select a trade to delete:</p>
 
         <ul className="mb-4">
           {trades.map((_, index) => (
             <li key={index} className="mb-2">
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-gray-300">
                 <input
                   type="radio"
                   name="tradeToDelete"
                   value={index}
                   checked={tradeToDelete === index}
                   onChange={() => setTradeToDelete(index)}
+                  className="accent-blue-500"
                 />
                 <span>Trade {index + 1}</span>
               </label>
@@ -42,9 +43,9 @@ const DeleteModal = ({ trades, tradeToDelete, setTradeToDelete, setShowDeleteMod
           <button
             onClick={handleDelete}
             disabled={tradeToDelete === null}
-            className={`text-sm px-4 py-1 rounded ${
+            className={`text-sm px-4 py-1 rounded transition-colors ${
               tradeToDelete === null
-                ? "bg-gray-300 cursor-not-allowed"
+                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                 : "bg-red-600 text-white hover:bg-red-700"
             }`}
           >
@@ -56,7 +57,7 @@ const DeleteModal = ({ trades, tradeToDelete, setTradeToDelete, setShowDeleteMod
               setTradeToDelete(null);
               setShowDeleteModal(false);
             }}
-            className="bg-gray-300 text-sm px-4 py-1 rounded hover:bg-gray-400"
+            className="bg-gray-600 text-gray-300 text-sm px-4 py-1 rounded hover:bg-gray-500 transition-colors"
           >
             Cancel
           </button>

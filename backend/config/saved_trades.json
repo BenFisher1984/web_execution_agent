@@ -3,17 +3,17 @@
     "editing": true,
     "symbol": "AAPL",
     "name": "AAPL",
-    "last_price": 209.9,
+    "last_price": 109.77586690401714,
     "volatility": {
-      "adr_20": 1.87,
-      "atr_14": 2
+      "adr_20": 0.4,
+      "atr_14": 7.31
     },
     "direction": "Long",
     "time_in_force": "GTC",
     "order_type": "Market",
-    "calculated_quantity": 50,
-    "usd": 11000,
-    "percent_balance": 11,
+    "calculated_quantity": 25,
+    "usd": 3000,
+    "percent_balance": 3,
     "usd_risk": 1000,
     "percent_risk": 1,
     "entry_rules": [
@@ -21,7 +21,7 @@
         "primary_source": "Price",
         "condition": ">=",
         "secondary_source": "Custom",
-        "value": "220"
+        "value": "120"
       }
     ],
     "initial_stop_rules": [
@@ -29,27 +29,33 @@
         "primary_source": "Price",
         "condition": "<=",
         "secondary_source": "Custom",
-        "value": "200"
+        "value": "80"
       }
     ],
     "trailing_stop_rules": [
       {
         "primary_source": "Price",
         "condition": "<=",
-        "value": 206.67847646522864,
-        "secondary_source": "EMA 21"
+        "value": 102.57271434964885,
+        "secondary_source": "SMA 21"
       }
     ],
     "take_profit_rules": [
       {
-        "primary_source": "Custom",
+        "primary_source": "Price",
         "condition": ">=",
         "secondary_source": "Custom",
         "value": "250"
       }
     ],
-    "order_status": "active",
-    "trade_status": "Pending",
-    "action": "--"
+    "order_status": "Inactive",
+    "trade_status": "Closed",
+    "action": "--",
+    "trade_id": "AAPL_1753072657",
+    "filled_qty": 25,
+    "executed_price": 100.70446483470454,
+    "exit_price": 96.39690005495356,
+    "exit_qty": 25,
+    "realized_pnl": -107.6891194937744
   }
 ]

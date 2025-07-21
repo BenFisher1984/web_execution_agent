@@ -128,4 +128,21 @@ def get_moving_average_value(prices: list[float], ma_config: dict) -> float:
     
     return calculate_moving_average(prices, ma_type, length)
 
+def build_preloaded_rolling_window(prices: list[float], window_size: int = 30) -> RollingWindow:
+    """
+    Build a RollingWindow and preload it with historical prices.
+    
+    Args:
+        prices: Historical prices (oldest to newest)
+        window_size: Size of rolling window
+        
+    Returns:
+        RollingWindow instance preloaded with data
+    """
+    if len(prices) < window_size:
+        raise ValueError(f"Insufficient history: need at least {window_size}, got {len(prices)}")
+
+    window = RollingWindow(window_size)
+    window.preload(prices[-window_size:])
+    return window
 

@@ -19,7 +19,7 @@ from backend.config.settings import get as settings_get
 
 # -----------------------------------------------------------
 
-from backend.services.validation import validate_trade
+from backend.services.validation import validate_trade, validate_editing_status_consistency
 from backend.routes import ticker_routes
 from backend.routes.ticker_routes import build_ticker_payload
 
@@ -45,12 +45,18 @@ else:
     exec_adapter = get_adapter(str(execution_adapter_name) if execution_adapter_name else "stub")
     md_client = get_market_data_client(str(market_data_provider) if market_data_provider else "stub")
 
-trade_manager = TradeManager(exec_adapter, md_client=md_client)
-tick_handler: TickHandler | None = None
-
 from backend.engine.order_executor import OrderExecutor
 
-order_executor = OrderExecutor(exec_adapter, trade_manager)
+# Create OrderExecutor first
+order_executor = OrderExecutor(exec_adapter)
+
+# Then create TradeManager with OrderExecutor
+trade_manager = TradeManager(exec_adapter, md_client=md_client, order_executor=order_executor)
+
+# Set the trade_manager reference in OrderExecutor
+order_executor.trade_manager = trade_manager
+
+tick_handler: TickHandler | None = None
 
 # Strategy Engine and Pine Script Handler removed - focusing on rules-based workflow
 
@@ -61,6 +67,9 @@ from backend.engine import indicators, volatility
 
 
 app = FastAPI()
+
+# Define TRADES_PATH for use in endpoints
+TRADES_PATH = Path("backend/config/saved_trades.json")
 
 @app.get("/")
 async def root():
@@ -210,9 +219,6 @@ async def shutdown_event() -> None:
     await trade_manager.stop()
     await exec_adapter.disconnect() 
     await order_executor.stop()
- 
-
-TRADES_PATH = Path("backend/config/saved_trades.json")
 
 def is_valid_trade(trade: dict) -> bool:
     # Skip validation for draft trades (editing: true)
@@ -239,16 +245,23 @@ app.add_middleware(
 
 @app.get("/trades")
 def get_trades():
-    clean_trades = []
-    for trade in trade_manager.trades:
-        if isinstance(trade, dict):
-            filtered = {}
-            for k, v in trade.items():
-                if asyncio.iscoroutine(v):
-                    continue
-                filtered[k] = v
-            clean_trades.append(filtered)
-    return JSONResponse(content=clean_trades)
+    """Return fresh trade data directly from saved_trades.json"""
+    try:
+        # Read fresh data from file, not cached data
+        trades = trade_manager.load_trades()
+        clean_trades = []
+        for trade in trades:
+            if isinstance(trade, dict):
+                filtered = {}
+                for k, v in trade.items():
+                    if asyncio.iscoroutine(v):
+                        continue
+                    filtered[k] = v
+                clean_trades.append(filtered)
+        return JSONResponse(content=clean_trades)
+    except Exception as e:
+        logger.error(f"Failed to load trades for API: {e}")
+        return JSONResponse(content=[], status_code=500)
 
 
 @app.post("/save_trades")
@@ -275,32 +288,69 @@ async def activate_trade(request: Request):
     trade = data.get("trade")
     portfolio = data.get("portfolio")
 
-    errors = validate_trade(trade, portfolio)
-    if not errors.get("valid", False):
-        raise HTTPException(status_code=422, detail={"errors": errors})
+    # Create a backup copy of the trade before modification
+    original_trade = trade.copy() if trade else None
+    
+    try:
+        # Validate trade
+        errors = validate_trade(trade, portfolio)
+        if not errors.get("valid", False):
+            raise HTTPException(status_code=422, detail={"errors": errors})
 
-    # ✅ Set trade lifecycle fields
-    trade["order_status"] = "Order Active"
-    trade["trade_status"] = "Pending"
+        # Load existing trades before modification
+        if TRADES_PATH.exists():
+            with open(TRADES_PATH, "r") as f:
+                try:
+                    existing = json.load(f)
+                except json.JSONDecodeError:
+                    existing = []
+        else:
+            existing = []
 
-    # ✅ Load and update saved_trades.json
-    if TRADES_PATH.exists():
-        with open(TRADES_PATH, "r") as f:
+        # Store original trades list for rollback
+        original_trades = existing.copy()
+
+        # ✅ Set trade lifecycle fields atomically
+        trade["order_status"] = "Working" 
+        trade["trade_status"] = "Pending"
+        
+        # Log editing field change for audit trail
+        old_editing = original_trade.get("editing") if original_trade else None
+        trade["editing"] = False  # Clear editing mode when activating
+        print(f"LOG: Editing field changed: {old_editing} -> False (trade activation) for symbol: {trade.get('symbol')}")
+        
+        # Add timestamp for audit trail
+        trade["activated_at"] = datetime.now().isoformat()
+
+        # ✅ Replace trade if already exists
+        existing = [t for t in existing if t.get("symbol") != trade.get("symbol")]
+        existing.append(trade)
+
+        # Atomic write with error handling
+        try:
+            with open(TRADES_PATH, "w") as f:
+                json.dump(existing, f, indent=2)
+        except Exception as write_error:
+            # Rollback on write failure
+            print(f"ERROR: Failed to save activated trade: {write_error}")
+            # Restore original file if possible
             try:
-                existing = json.load(f)
-            except json.JSONDecodeError:
-                existing = []
-    else:
-        existing = []
+                with open(TRADES_PATH, "w") as f:
+                    json.dump(original_trades, f, indent=2)
+            except:
+                pass  # Best effort rollback
+            raise HTTPException(status_code=500, detail={"error": "Failed to save trade activation"})
 
-    # ✅ Replace trade if already exists
-    existing = [t for t in existing if t.get("symbol") != trade.get("symbol")]
-    existing.append(trade)
-
-    with open(TRADES_PATH, "w") as f:
-        json.dump(existing, f, indent=2)
-
-    return JSONResponse(content={"message": "Trade validated and activated", "trade": trade})
+        print(f"SUCCESS: Trade activated successfully: {trade.get('symbol')} - {trade.get('order_status')}/{trade.get('trade_status')}")
+        return JSONResponse(content={"message": "Trade validated and activated", "trade": trade})
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (validation errors)
+        raise
+    except Exception as e:
+        # Handle unexpected errors
+        print(f"ERROR: Unexpected error during trade activation: {e}")
+        raise HTTPException(status_code=500, detail={"error": "Internal server error during trade activation"})
 
 
 
@@ -486,6 +536,86 @@ async def debug_tick(symbol: str, price: float):
     await trade_manager.evaluate_trade_on_tick(symbol, price)
     return {"message": f"✅ Tick injected for {symbol} at {price}"}
 
+@app.post("/simulate_fill")
+async def simulate_fill(request: Request):
+    """Legacy endpoint - redirects to appropriate fill type"""
+    try:
+        fill_data = await request.json()
+        symbol = fill_data.get("symbol")
+        fill_price = fill_data.get("fill_price")
+        filled_qty = fill_data.get("filled_qty")
+        
+        if not symbol or fill_price is None or filled_qty is None:
+            raise HTTPException(status_code=400, detail="symbol, fill_price, and filled_qty are required")
+        
+        # Default to entry fill for backward compatibility
+        await trade_manager.mark_trade_filled(symbol, fill_price, filled_qty)
+        
+        return {
+            "message": f"✅ Entry fill simulated for {symbol}: {filled_qty} shares @ ${fill_price}",
+            "fill_data": fill_data
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error simulating fill: {e}")
+        raise HTTPException(status_code=500, detail=f"Error simulating fill: {str(e)}")
+
+@app.post("/simulate_entry_fill")
+async def simulate_entry_fill(request: Request):
+    """Simulate entry order fill"""
+    try:
+        fill_data = await request.json()
+        symbol = fill_data.get("symbol")
+        fill_price = fill_data.get("fill_price")
+        filled_qty = fill_data.get("filled_qty")
+        
+        if not symbol or fill_price is None or filled_qty is None:
+            raise HTTPException(status_code=400, detail="symbol, fill_price, and filled_qty are required")
+        
+        # Simulate entry fill
+        await trade_manager.mark_trade_filled(symbol, fill_price, filled_qty)
+        
+        return {
+            "message": f"✅ Entry fill simulated for {symbol}: {filled_qty} shares @ ${fill_price}",
+            "fill_data": fill_data,
+            "fill_type": "entry"
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error simulating entry fill: {e}")
+        raise HTTPException(status_code=500, detail=f"Error simulating entry fill: {str(e)}")
+
+@app.post("/simulate_exit_fill")
+async def simulate_exit_fill(request: Request):
+    """Simulate exit order fill"""
+    try:
+        fill_data = await request.json()
+        symbol = fill_data.get("symbol")
+        exit_price = fill_data.get("exit_price")
+        exit_qty = fill_data.get("exit_qty")
+        
+        if not symbol or exit_price is None or exit_qty is None:
+            raise HTTPException(status_code=400, detail="symbol, exit_price, and exit_qty are required")
+        
+        # Simulate exit fill using mark_trade_closed
+        await trade_manager.mark_trade_closed(symbol, exit_price, exit_qty)
+        
+        return {
+            "message": f"✅ Exit fill simulated for {symbol}: {exit_qty} shares @ ${exit_price}",
+            "fill_data": fill_data,
+            "fill_type": "exit"
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error simulating exit fill: {e}")
+        raise HTTPException(status_code=500, detail=f"Error simulating exit fill: {str(e)}")
+
 
 from fastapi import Body
 
@@ -497,6 +627,57 @@ async def debug_mark_filled(data: dict = Body(...)):
 
     await trade_manager.mark_trade_filled(symbol, fill_price, filled_qty)
     return {"message": f"✅ Simulated fill for {symbol} @ ${fill_price} x {filled_qty}"}
+
+@app.get("/debug/active_orders")
+async def get_active_orders():
+    """Get active orders from OrderExecutor for debugging"""
+    if order_executor:
+        return {
+            "active_orders": order_executor.active_orders,
+            "count": len(order_executor.active_orders)
+        }
+    return {"active_orders": {}, "count": 0}
+
+@app.post("/inject_fill")
+async def inject_fill(request: Request):
+    """
+    Inject a fill through the proper OrderExecutor pipeline.
+    This simulates a real broker fill going through the actual production code path.
+    """
+    try:
+        fill_data = await request.json()
+        broker_id = fill_data.get("broker_id")
+        symbol = fill_data.get("symbol") 
+        qty = fill_data.get("qty")
+        price = fill_data.get("price")
+        
+        if not all([broker_id, symbol, qty is not None, price is not None]):
+            raise HTTPException(status_code=400, detail="broker_id, symbol, qty, and price are required")
+        
+        # Create proper Fill object matching the TypedDict
+        from datetime import datetime
+        fill = {
+            "broker_id": str(broker_id),
+            "symbol": symbol,
+            "qty": int(qty),
+            "price": float(price),
+            "ts": datetime.utcnow(),
+            "local_id": str(broker_id)  # Use same as broker_id for simplicity
+        }
+        
+        # Send fill through the actual OrderExecutor pipeline
+        await order_executor._on_fill(fill)
+        
+        return {
+            "message": f"✅ Fill injected through OrderExecutor: {symbol} {qty} @ ${price}",
+            "fill": fill
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error injecting fill: {e}")
+        raise HTTPException(status_code=500, detail=f"Error injecting fill: {str(e)}")
 
 @app.get("/trades/{symbol}/audit")
 async def get_trade_audit_trail(symbol: str):

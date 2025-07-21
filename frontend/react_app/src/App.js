@@ -50,7 +50,7 @@ const formatOrderStatus = (status) => {
 
   const pillStyles = {
     "inactive": "bg-gray-400 text-white",
-    "active": "bg-blue-500 text-white",
+    "Working": "bg-blue-500 text-white",
     "entry order submitted": "bg-yellow-500 text-black",
     "contingent order active": "bg-indigo-600 text-white",
     "contingent order submitted": "bg-purple-600 text-white",
@@ -58,7 +58,7 @@ const formatOrderStatus = (status) => {
 
   const labelMap = {
     "inactive": "Inactive",
-    "active": "Active",
+    "Working": "Working",
     "entry order submitted": "Entry Submitted",
     "contingent order active": "Contingent Active",
     "contingent order submitted": "Contingent Submitted",
@@ -424,7 +424,7 @@ function App() {
       }
 
       const updated = [...trades];
-      updated[index].order_status = "active";
+      updated[index].order_status = "Working";
       updated[index].trade_status = data.trade?.trade_status ?? "Pending";
       updated[index].calculated_quantity = data.trade?.calculated_quantity ?? null;
       updated[index].action = "--";
@@ -439,7 +439,7 @@ function App() {
     } catch (err) {
       alert("❌ Activation failed: " + err.message);
       const updated = [...trades];
-      updated[index].order_status = "pending";
+      updated[index].order_status = "Working";
       setTrades(updated);
     }
   };
@@ -474,52 +474,52 @@ function App() {
       .catch(() => alert("Failed to update reset schedule."));
   };
 
-  if (loading) return <div className="p-4">Loading trades...</div>;
-  if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
+  if (loading) return <div className="p-4 text-gray-300">Loading trades...</div>;
+  if (error) return <div className="p-4 text-red-400">Error: {error}</div>;
 
   return (
-    <div className="p-4">
+    <div className="p-4 min-h-screen">
       {/* Header Row */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-8">
-          <h1 className="text-xl font-semibold">Execution Agent</h1>
+          <h1 className="text-2xl font-bold text-white">Execution Agent</h1>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">API STATUS:</span>
+            <span className="text-sm font-medium text-gray-300">API STATUS:</span>
             <span className={`px-3 py-1 rounded font-bold text-white ${apiStatus === "CONNECTED" ? "bg-green-600" : "bg-red-600"}`}>{apiStatus}</span>
           </div>
           {/* Timezone/Reset Controls */}
           <div className="flex items-center gap-4 text-sm ml-8">
             <div className="flex items-center gap-1">
-              <span className="text-gray-500">Timezone:</span>
-              <span className="ml-1 text-gray-800">{timezoneDisplay}</span>
+              <span className="text-gray-400">Timezone:</span>
+              <span className="ml-1 text-gray-300">{timezoneDisplay}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-gray-500">Current Time:</span>
-              <span className="ml-1 text-gray-800">{currentTime}</span>
+              <span className="text-gray-400">Current Time:</span>
+              <span className="ml-1 text-gray-300">{currentTime}</span>
             </div>
             <div className="flex items-center gap-1">
-              <label className="text-gray-500">Reset Time:</label>
+              <label className="text-gray-400">Reset Time:</label>
               <input
                 type="text"
                 value={resetTime}
                 onChange={(e) => setResetTime(e.target.value)}
-                className="border rounded px-2 py-1 w-16 text-right"
+                className="bg-dark-input border border-gray-700 rounded px-2 py-1 w-16 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ minWidth: 0 }}
               />
             </div>
             <div className="flex items-center gap-1">
-              <label className="text-gray-500">Reset TZ:</label>
+              <label className="text-gray-400">Reset TZ:</label>
               <input
                 type="text"
                 value={resetTimezone}
                 onChange={(e) => setResetTimezone(e.target.value)}
-                className="border rounded px-2 py-1 w-28 text-right"
+                className="bg-dark-input border border-gray-700 rounded px-2 py-1 w-28 text-right text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ minWidth: 0 }}
               />
             </div>
             <button
               onClick={handleScheduleUpdate}
-              className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 ml-2"
+              className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 ml-2 transition-colors"
               style={{ whiteSpace: 'nowrap' }}
             >
               Set Reset Time
@@ -566,7 +566,7 @@ function App() {
             setLayoutDraft(JSON.parse(JSON.stringify(layoutConfig)));
             setModifyLayoutMode(true);
           }}
-          className="bg-blue-600 text-white text-sm px-4 py-1 rounded hover:bg-blue-700"
+          className="bg-blue-600 text-white text-sm px-4 py-1 rounded hover:bg-blue-700 transition-colors"
         >
           Modify Layout
         </button>
@@ -575,14 +575,14 @@ function App() {
           onClick={() => {
             setTrades(prev => [...prev, { editing: true }]);
           }}
-          className="bg-green-600 text-white text-sm px-4 py-1 rounded hover:bg-green-700"
+          className="bg-green-600 text-white text-sm px-4 py-1 rounded hover:bg-green-700 transition-colors"
         >
           Add Trade
         </button>
 
         <button
           onClick={() => setShowDeleteModal(true)}
-          className="bg-red-600 text-white text-sm px-4 py-1 rounded hover:bg-red-700"
+          className="bg-red-600 text-white text-sm px-4 py-1 rounded hover:bg-red-700 transition-colors"
         >
           Delete Trade
         </button>
@@ -607,7 +607,7 @@ function App() {
                 alert("Failed to save trades.");
               });
           }}
-          className="bg-yellow-500 text-white text-sm px-4 py-1 rounded hover:bg-yellow-600"
+          className="bg-yellow-500 text-white text-sm px-4 py-1 rounded hover:bg-yellow-600 transition-colors"
         >
           Save Trades
         </button>
@@ -664,10 +664,10 @@ function App() {
 )}
 
 
-    <div className="mt-6 text-center text-base italic text-gray-600 border-t pt-4">
-      “Whenever I enter a position, I have a predetermined stop. That is the only way I can sleep.
+    <div className="mt-6 text-center text-base italic text-gray-400 border-t border-gray-700 pt-4">
+      "Whenever I enter a position, I have a predetermined stop. That is the only way I can sleep.
       I know where I'm getting out before I get in. The position size on a trade is determined by the stop,
-      and the stop is determined on a technical basis.” — <span className="font-medium">Bruce Kovner</span>
+      and the stop is determined on a technical basis." — <span className="font-medium text-gray-300">Bruce Kovner</span>
   </div>
 </div>  
 );

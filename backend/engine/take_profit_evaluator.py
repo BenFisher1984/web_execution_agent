@@ -14,6 +14,7 @@ class TakeProfitEvaluator:
     def should_trigger_take_profit(self, trade: dict, current_price: float) -> Tuple[bool, Dict[str, Any]]:
         """
         Determines if the current price has triggered a take-profit.
+        Uses the same rule format as EntryEvaluator and StopLossEvaluator.
         
         Args:
             trade: Trade dictionary
@@ -23,30 +24,50 @@ class TakeProfitEvaluator:
             Tuple[bool, dict]: (triggered, take_profit_details)
         """
         direction = trade.get("direction", "Long")
-        take_profit_targets = self._get_take_profit_targets(trade)
+        take_profit_rules = trade.get("take_profit_rules", [])
         
-        if not take_profit_targets:
-            return False, {"triggered": False, "targets": [], "current_price": current_price}
+        if not take_profit_rules:
+            return False, {"triggered": False, "rule": None, "current_price": current_price}
         
-        # Check each target level
-        triggered_targets = []
-        for target in take_profit_targets:
-            if self._evaluate_target(trade, current_price, target, direction):
-                triggered_targets.append(target)
+        # Use the first take profit rule (like other evaluators)
+        rule = take_profit_rules[0]
+        target_price_str = rule.get("value")
+        condition = rule.get("condition", ">=")
         
-        triggered = len(triggered_targets) > 0
+        if not target_price_str:
+            return False, {"triggered": False, "rule": rule, "current_price": current_price}
+        
+        try:
+            target_price = float(target_price_str)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid take profit price: {target_price_str}")
+            return False, {"triggered": False, "rule": rule, "current_price": current_price}
+        
+        # Evaluate the condition
+        triggered = False
+        if direction == "Long":
+            if condition == ">=" and current_price >= target_price:
+                triggered = True
+            elif condition == ">" and current_price > target_price:
+                triggered = True
+        elif direction == "Short":
+            if condition == "<=" and current_price <= target_price:
+                triggered = True
+            elif condition == "<" and current_price < target_price:
+                triggered = True
         
         take_profit_details = {
             "triggered": triggered,
-            "triggered_targets": triggered_targets,
-            "all_targets": take_profit_targets,
+            "rule": rule,
+            "target_price": target_price,
             "current_price": current_price,
-            "direction": direction
+            "direction": direction,
+            "condition": condition
         }
         
         if triggered:
             logger.info(f"Take profit triggered for {trade.get('symbol')}: "
-                       f"price {current_price:.2f} hit targets {[t['price'] for t in triggered_targets]}")
+                       f"price {current_price:.2f} {condition} target {target_price:.2f}")
         
         return triggered, take_profit_details
 
@@ -70,7 +91,7 @@ class TakeProfitEvaluator:
             targets.append({
                 "price": primary_tp,
                 "type": primary_tp_type,
-                "quantity": trade.get("take_profit_quantity", trade.get("quantity", 0)),
+                "quantity": trade.get("take_profit_quantity", trade.get("calculated_quantity", 0)),
                 "level": "primary"
             })
         
@@ -171,7 +192,8 @@ class TakeProfitEvaluator:
             bool: True if take profit is active
         """
         return (trade.get("take_profit_price") is not None or 
-                len(trade.get("additional_take_profits", [])) > 0)
+                len(trade.get("additional_take_profits", [])) > 0 or
+                len(trade.get("take_profit_rules", [])) > 0)
 
     def calculate_exit_quantity(self, trade: dict, target: Dict[str, Any]) -> int:
         """
@@ -184,7 +206,7 @@ class TakeProfitEvaluator:
         Returns:
             int: Quantity to exit
         """
-        filled_qty = trade.get("filled_qty", trade.get("quantity", 0))
+        filled_qty = trade.get("filled_qty", trade.get("calculated_quantity", 0))
         
         if target.get("type") == "percentage":
             # Percentage-based exit

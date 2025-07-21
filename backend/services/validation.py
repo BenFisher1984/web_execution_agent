@@ -45,10 +45,44 @@ def get_nested_field(data, key):
     except Exception:
         return None
 
+def validate_editing_status_consistency(trade: dict) -> dict:
+    """
+    Validates that editing field is consistent with order/trade status.
+    Business rule: editing=true should only exist with no status fields or Draft status.
+    """
+    editing = trade.get("editing", False)
+    order_status = trade.get("order_status")
+    trade_status = trade.get("trade_status")
+    
+    # If editing=true, status fields should be empty/null or Draft
+    if editing:
+        if order_status and order_status != "Draft":
+            return {"valid": False, "reason": f"Inconsistent state: editing=true but order_status='{order_status}'. Active trades cannot be in editing mode."}
+        if trade_status and trade_status not in [None, "", "Draft"]:
+            return {"valid": False, "reason": f"Inconsistent state: editing=true but trade_status='{trade_status}'. Active trades cannot be in editing mode."}
+    
+    # If status indicates active trade, editing must be false
+    active_order_statuses = ["Working", "Entry Order Submitted", "Contingent Order Submitted", "Contingent Order Working"]
+    active_trade_statuses = ["Pending", "Filled"]
+    
+    if order_status in active_order_statuses and editing:
+        return {"valid": False, "reason": f"Inconsistent state: order_status='{order_status}' requires editing=false"}
+    
+    if trade_status in active_trade_statuses and editing:
+        return {"valid": False, "reason": f"Inconsistent state: trade_status='{trade_status}' requires editing=false"}
+    
+    return {"valid": True}
+
 def validate_trade(trade: dict, portfolio: dict = None) -> dict:
     try:
         print("🚦 validate_trade called with trade:")
         print(json.dumps(trade, indent=2))
+        
+        # First check editing/status consistency
+        consistency_check = validate_editing_status_consistency(trade)
+        if not consistency_check["valid"]:
+            return consistency_check
+        
         # Validate against schema if available
         schema_path = Path(__file__).parent.parent / "schemas" / "trade_schema.json"
         if schema_path.exists():

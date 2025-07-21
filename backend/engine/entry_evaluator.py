@@ -35,7 +35,10 @@ class EntryEvaluator:
             entry_rule_price = trade.get("entry_trigger")
 
         # Handle custom price-based entry
-        if entry_rule == "Custom" and entry_rule_price is not None:
+        if (entry_rule == "Custom" or entry_rule == "Price") and entry_rule_price is not None:
+            # Convert string to float if needed
+            if isinstance(entry_rule_price, str):
+                entry_rule_price = float(entry_rule_price)
             return self._evaluate_price_condition(direction, current_price, entry_rule_price)
         
         # Handle rule-based entry conditions

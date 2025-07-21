@@ -26,7 +26,15 @@ class StopLossEvaluator:
             Tuple[bool, dict]: (triggered, stop_details)
         """
         direction = trade.get("direction", "Long")
-        static_stop = trade.get("initial_stop_price")
+        
+        # Extract static stop from initial_stop_rules
+        static_stop = None
+        initial_stop_rules = trade.get("initial_stop_rules", [])
+        if initial_stop_rules:
+            static_stop_value = initial_stop_rules[0].get("value")
+            if static_stop_value:
+                static_stop = float(static_stop_value)
+        
         trailing_rule = trade.get('trailing_stop_rules', [{}])[0]
         
         # Calculate dynamic stop if trailing rule is present
@@ -233,5 +241,5 @@ class StopLossEvaluator:
         Returns:
             bool: True if stop loss is active
         """
-        return (trade.get("initial_stop_price") is not None or 
+        return (trade.get("initial_stop_rules") is not None or 
                 trade.get('trailing_stop_rules', [{}])[0] is not None)

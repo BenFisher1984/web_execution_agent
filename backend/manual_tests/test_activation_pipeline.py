@@ -20,7 +20,7 @@ def test_activate_trade_valid():
 
     assert success is True, f"Expected success but got errors: {errors}"
     assert "quantity" in trade and trade["quantity"] > 0, "Quantity not set correctly"
-    assert trade["order_status"] == "active", "Trade status not set to active"
+    assert trade["order_status"] == "Working", "Trade status not set to Working"
     print(f"📦 Calculated quantity: {trade['quantity']}")
     print("✅ test_activate_trade_valid passed.")
 

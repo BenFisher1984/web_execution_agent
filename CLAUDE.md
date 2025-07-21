@@ -187,6 +187,9 @@ TickHandler → TradeManager
 - Modular architecture with single responsibility principle
 - Performance-conscious design (not HFT level)
 
+### Development Approach
+**🎯 ROBUSTNESS OVER QUICK FIXES**: When identifying bugs or issues, always implement the robust solution that prevents the entire class of problems, not just the immediate symptom. Choose comprehensive fixes that strengthen system integrity over minimal patches.
+
 ### Testing Requirements
 - Test each evaluator independently
 - Comprehensive audit trails for all actions

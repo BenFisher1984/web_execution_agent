@@ -38,7 +38,7 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
 
     const pillStyles = {
       "inactive": "bg-gray-400 text-white",
-      "active": "bg-blue-500 text-white",
+      "Working": "bg-blue-500 text-white",
       "entry order submitted": "bg-yellow-500 text-black",
       "contingent order active": "bg-indigo-600 text-white",
       "contingent order submitted": "bg-purple-600 text-white",
@@ -46,7 +46,7 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
 
     const labelMap = {
       "inactive": "Inactive",
-      "active": "Active",
+      "Working": "Working",
       "entry order submitted": "Entry Submitted",
       "contingent order active": "Contingent Active",
       "contingent order submitted": "Contingent Submitted",
@@ -84,15 +84,15 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
   };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="table-auto border-collapse text-sm mt-4">
+    <div className="overflow-x-auto bg-dark-panel rounded-lg p-4 shadow-lg">
+      <table className="table-auto border-collapse text-sm mt-4 w-full">
         <thead>
-          <tr className="bg-gray-200 text-xs text-gray-700 uppercase">
-            <th className="border px-2 py-1 whitespace-nowrap">Trade #</th>
+          <tr className="bg-gray-700 text-xs text-gray-300 uppercase">
+            <th className="border border-gray-600 px-2 py-1 whitespace-nowrap">Trade #</th>
             {layout.map((section) => (
               <th
                 key={section.section}
-                className="border px-2 py-1 text-center whitespace-nowrap"
+                className="border border-gray-600 px-2 py-1 text-center whitespace-nowrap"
                 colSpan={section.fields.length}
               >
                 {section.section}
@@ -100,11 +100,11 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
             ))}
           </tr>
 
-          <tr className="bg-gray-100 text-xs text-gray-600">
-            <th className="border px-2 py-1 whitespace-nowrap"></th>
+          <tr className="bg-gray-800 text-xs text-gray-400">
+            <th className="border border-gray-600 px-2 py-1 whitespace-nowrap"></th>
             {layout.flatMap((section) =>
               section.fields.map((field) => (
-                <th key={field.key} className="border px-2 py-1 text-left whitespace-nowrap">{field.label}</th>
+                <th key={field.key} className="border border-gray-600 px-2 py-1 text-left whitespace-nowrap">{field.label}</th>
               ))
             )}
           </tr>
@@ -114,10 +114,10 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
           {trades.map((trade, index) => (
             <tr
               key={`trade-${index}`}
-              className={`even:bg-gray-50 cursor-pointer ${selectedTradeIndex === index ? 'bg-blue-100' : ''}`}
+              className={`even:bg-gray-800/50 cursor-pointer hover:bg-gray-700/50 transition-colors ${selectedTradeIndex === index ? 'bg-blue-900/50' : ''}`}
               onClick={() => onSelectTrade(index)}
             >
-              <td className="border px-2 py-1 font-semibold text-gray-800 whitespace-nowrap">Trade {index + 1}</td>
+              <td className="border border-gray-600 px-2 py-1 font-semibold text-gray-300 whitespace-nowrap">Trade {index + 1}</td>
               {layout.flatMap((section) =>
                 section.fields.map((field) => {
                   const flatTrade = flattenToFlat(trade);
@@ -157,20 +157,20 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
                     if (field.key === "take_profit_rules.0.value") secondarySource = flatTrade["take_profit_rules.0.secondary_source"];
                     const isCustom = secondarySource === "Custom";
                     return (
-                      <td key={`${field.key}-${index}`} className="border px-2 py-1 whitespace-nowrap">
+                      <td key={`${field.key}-${index}`} className="border border-gray-600 px-2 py-1 whitespace-nowrap">
                         <input
                           type="number"
                           value={value ?? ""}
                           disabled={!isCustom || !trade.editing}
                           onChange={e => isCustom && trade.editing && handleChange(e.target.value)}
-                          className={`px-1 text-sm border rounded max-w-[120px] ${(!isCustom || !trade.editing) ? "bg-gray-100 cursor-not-allowed" : "bg-white"}`}
+                          className={`px-1 text-sm border rounded max-w-[120px] ${(!isCustom || !trade.editing) ? "bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed" : "bg-dark-input border-gray-600 text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"}`}
                         />
                       </td>
                     );
                   }
 
                   return (
-                    <td key={`${field.key}-${index}`} className="border px-2 py-1 whitespace-nowrap">
+                    <td key={`${field.key}-${index}`} className="border border-gray-600 px-2 py-1 whitespace-nowrap">
                       {field.key === "symbol" ? (
                         <input
                           type="text"
@@ -184,21 +184,21 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
                               handleSymbolLookup(index, value);
                             }
                           }}
-                                  className={`px-1 text-sm border rounded max-w-[120px] ${!trade.editing ? "bg-gray-100" : "bg-white"
+                                  className={`px-1 text-sm border rounded max-w-[120px] ${!trade.editing ? "bg-gray-700 border-gray-600 text-gray-400" : "bg-dark-input border-gray-600 text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       }`}
 
                         />
                       ) : field.key === "name" ? (
-                        <span>{flatTrade[field.key] || "--"}</span>
+                        <span className="text-gray-300">{flatTrade[field.key] || "--"}</span>
                       ) : field.key === "last_price" ? (
-                        <span>{flatTrade[field.key] !== undefined ? flatTrade[field.key] : "--"}</span>
+                        <span className="text-gray-300">{flatTrade[field.key] !== undefined ? flatTrade[field.key] : "--"}</span>
                       ) : field.key === "order_status" || field.key === "trade_status" ? (
                         <div className="flex justify-center items-center">
                           {field.key === "order_status"
                             ? formatOrderStatus(trade.order_status)
                             : trade.trade_status?.toLowerCase() === "live"
                             ? <span className="bg-green-600 text-white font-bold px-2 py-1 rounded text-sm">Live</span>
-                            : <span className="text-gray-700">{String(value || "--")}</span>}
+                            : <span className="text-gray-400">{String(value || "--")}</span>}
                         </div>
                       ) : field.type === "select" ? (
                         <select
@@ -213,8 +213,8 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
                           className={`px-1 text-sm border rounded max-w-[120px] ${
                               field.readonly === true ||
                                   (!trade.editing && field.key !== "action")
-                                  ? "bg-gray-100 cursor-not-allowed"
-                                  : "bg-white"
+                                  ? "bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed"
+                                  : "bg-dark-input border-gray-600 text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
 
                           }`}
                         >
@@ -268,13 +268,13 @@ const TradeTable = ({ trades, layout, handleInputChange, getAllFields, numericFi
                               field.readonly === true ||
                                   (!trade.editing && field.key !== "action")
 
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : "bg-white"
+                              ? "bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed"
+                              : "bg-dark-input border-gray-600 text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           } ${
                             ["percent_at_risk", "dollar_at_risk", "pnl_percent", "pnl_dollar"].includes(field.key) &&
                             Number(value) > 0
-                              ? "text-red-600 font-semibold"
-                              : "text-gray-500"
+                              ? "text-red-400 font-semibold"
+                              : "text-gray-300"
                           }`}
                         />
                       )}
